@@ -95,7 +95,7 @@ export const PDFUploadModal = ({
     opacity: 1
   }} exit={{
     opacity: 0
-  }} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={handleBackdropClick} data-magicpath-id="0" data-magicpath-path="PDFUploadModal.tsx">
+  }} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={handleBackdropClick}>
       <motion.div initial={{
       scale: 0.9,
       opacity: 0
@@ -109,81 +109,81 @@ export const PDFUploadModal = ({
       type: "spring",
       damping: 25,
       stiffness: 300
-    }} className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden" data-magicpath-id="1" data-magicpath-path="PDFUploadModal.tsx">
+    }} className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50" data-magicpath-id="2" data-magicpath-path="PDFUploadModal.tsx">
-          <div className="flex items-center justify-between" data-magicpath-id="3" data-magicpath-path="PDFUploadModal.tsx">
-            <div className="flex items-center gap-3" data-magicpath-id="4" data-magicpath-path="PDFUploadModal.tsx">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center" data-magicpath-id="5" data-magicpath-path="PDFUploadModal.tsx">
-                <FileText className="w-5 h-5 text-white" data-magicpath-id="6" data-magicpath-path="PDFUploadModal.tsx" />
+        <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
               </div>
-              <div data-magicpath-id="7" data-magicpath-path="PDFUploadModal.tsx">
-                <h2 className="text-xl font-bold text-slate-900" data-magicpath-id="8" data-magicpath-path="PDFUploadModal.tsx">
-                  <span data-magicpath-id="9" data-magicpath-path="PDFUploadModal.tsx">Upload Credit Report</span>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  <span>Upload Credit Report</span>
                 </h2>
-                <p className="text-sm text-slate-600" data-magicpath-id="10" data-magicpath-path="PDFUploadModal.tsx">
-                  <span data-magicpath-id="11" data-magicpath-path="PDFUploadModal.tsx">Select a PDF file to begin analysis</span>
+                <p className="text-sm text-slate-600">
+                  <span>Select a PDF file to begin analysis</span>
                 </p>
               </div>
             </div>
-            {!isUploading && <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors" data-magicpath-id="12" data-magicpath-path="PDFUploadModal.tsx">
-                <X className="w-5 h-5 text-slate-500" data-magicpath-id="13" data-magicpath-path="PDFUploadModal.tsx" />
+            {!isUploading && <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-slate-500" />
               </button>}
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6" data-magicpath-id="14" data-magicpath-path="PDFUploadModal.tsx">
-          {!isUploading ? <div data-magicpath-id="15" data-magicpath-path="PDFUploadModal.tsx">
+        <div className="p-6">
+          {!isUploading ? <div>
               {/* Drop Zone */}
-              <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${isDragOver ? 'border-blue-500 bg-blue-50' : error ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50'}`} onClick={handleBrowseClick} data-magicpath-id="16" data-magicpath-path="PDFUploadModal.tsx">
-                <div className="flex flex-col items-center gap-4" data-magicpath-id="17" data-magicpath-path="PDFUploadModal.tsx">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDragOver ? 'bg-blue-100' : error ? 'bg-red-100' : 'bg-slate-100'}`} data-magicpath-id="18" data-magicpath-path="PDFUploadModal.tsx">
-                    {error ? <AlertCircle className="w-8 h-8 text-red-500" data-magicpath-id="19" data-magicpath-path="PDFUploadModal.tsx" /> : <Upload className={`w-8 h-8 ${isDragOver ? 'text-blue-600' : 'text-slate-500'}`} data-magicpath-id="20" data-magicpath-path="PDFUploadModal.tsx" />}
+              <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${isDragOver ? 'border-blue-500 bg-blue-50' : error ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50'}`} onClick={handleBrowseClick}>
+                <div className="flex flex-col items-center gap-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isDragOver ? 'bg-blue-100' : error ? 'bg-red-100' : 'bg-slate-100'}`}>
+                    {error ? <AlertCircle className="w-8 h-8 text-red-500" /> : <Upload className={`w-8 h-8 ${isDragOver ? 'text-blue-600' : 'text-slate-500'}`} />}
                   </div>
                   
-                  <div data-magicpath-id="21" data-magicpath-path="PDFUploadModal.tsx">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2" data-magicpath-id="22" data-magicpath-path="PDFUploadModal.tsx">
-                      <span data-magicpath-id="23" data-magicpath-path="PDFUploadModal.tsx">{isDragOver ? 'Drop your PDF here' : 'Drag & drop your PDF'}</span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                      <span>{isDragOver ? 'Drop your PDF here' : 'Drag & drop your PDF'}</span>
                     </h3>
-                    <p className="text-slate-600 mb-4" data-magicpath-id="24" data-magicpath-path="PDFUploadModal.tsx">
-                      <span data-magicpath-id="25" data-magicpath-path="PDFUploadModal.tsx">or click to browse files</span>
+                    <p className="text-slate-600 mb-4">
+                      <span>or click to browse files</span>
                     </p>
                     
                     <motion.button whileHover={{
                   scale: 1.02
                 }} whileTap={{
                   scale: 0.98
-                }} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200" data-magicpath-id="26" data-magicpath-path="PDFUploadModal.tsx">
-                      <span data-magicpath-id="27" data-magicpath-path="PDFUploadModal.tsx">Choose File</span>
+                }} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200">
+                      <span>Choose File</span>
                     </motion.button>
                   </div>
                 </div>
               </div>
 
               {/* File Requirements */}
-              <div className="mt-6 p-4 bg-slate-50 rounded-lg" data-magicpath-id="28" data-magicpath-path="PDFUploadModal.tsx">
-                <h4 className="font-medium text-slate-900 mb-2" data-magicpath-id="29" data-magicpath-path="PDFUploadModal.tsx">
-                  <span data-magicpath-id="30" data-magicpath-path="PDFUploadModal.tsx">File Requirements:</span>
+              <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                <h4 className="font-medium text-slate-900 mb-2">
+                  <span>File Requirements:</span>
                 </h4>
-                <ul className="text-sm text-slate-600 space-y-1" data-magicpath-id="31" data-magicpath-path="PDFUploadModal.tsx">
-                  <li className="flex items-center gap-2" data-magicpath-id="32" data-magicpath-path="PDFUploadModal.tsx">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" data-magicpath-id="33" data-magicpath-path="PDFUploadModal.tsx" />
-                    <span data-magicpath-id="34" data-magicpath-path="PDFUploadModal.tsx">PDF format only</span>
+                <ul className="text-sm text-slate-600 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>PDF format only</span>
                   </li>
-                  <li className="flex items-center gap-2" data-magicpath-id="35" data-magicpath-path="PDFUploadModal.tsx">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" data-magicpath-id="36" data-magicpath-path="PDFUploadModal.tsx" />
-                    <span data-magicpath-id="37" data-magicpath-path="PDFUploadModal.tsx">Maximum file size: 50MB</span>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Maximum file size: 50MB</span>
                   </li>
-                  <li className="flex items-center gap-2" data-magicpath-id="38" data-magicpath-path="PDFUploadModal.tsx">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" data-magicpath-id="39" data-magicpath-path="PDFUploadModal.tsx" />
-                    <span data-magicpath-id="40" data-magicpath-path="PDFUploadModal.tsx">Credit reports from major bureaus supported</span>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <span>Credit reports from major bureaus supported</span>
                   </li>
                 </ul>
               </div>
 
               {/* Error Message */}
-              <AnimatePresence data-magicpath-id="41" data-magicpath-path="PDFUploadModal.tsx">
+              <AnimatePresence>
                 {error && <motion.div initial={{
               opacity: 0,
               y: -10
@@ -193,45 +193,45 @@ export const PDFUploadModal = ({
             }} exit={{
               opacity: 0,
               y: -10
-            }} className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3" data-magicpath-id="42" data-magicpath-path="PDFUploadModal.tsx">
-                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" data-magicpath-id="43" data-magicpath-path="PDFUploadModal.tsx" />
-                    <p className="text-red-700 text-sm" data-magicpath-id="44" data-magicpath-path="PDFUploadModal.tsx">
-                      <span data-magicpath-id="45" data-magicpath-path="PDFUploadModal.tsx">{error}</span>
+            }} className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <p className="text-red-700 text-sm">
+                      <span>{error}</span>
                     </p>
                   </motion.div>}
               </AnimatePresence>
             </div> : (/* Upload Progress */
-        <div className="text-center py-8" data-magicpath-id="46" data-magicpath-path="PDFUploadModal.tsx">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6" data-magicpath-id="47" data-magicpath-path="PDFUploadModal.tsx">
-                <Upload className="w-8 h-8 text-blue-600" data-magicpath-id="48" data-magicpath-path="PDFUploadModal.tsx" />
+        <div className="text-center py-8">
+              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Upload className="w-8 h-8 text-blue-600" />
               </div>
               
-              <h3 className="text-lg font-semibold text-slate-900 mb-2" data-magicpath-id="49" data-magicpath-path="PDFUploadModal.tsx">
-                <span data-magicpath-id="50" data-magicpath-path="PDFUploadModal.tsx">Uploading Credit Report</span>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                <span>Uploading Credit Report</span>
               </h3>
-              <p className="text-slate-600 mb-6" data-magicpath-id="51" data-magicpath-path="PDFUploadModal.tsx">
-                <span data-magicpath-id="52" data-magicpath-path="PDFUploadModal.tsx">Please wait while we process your file...</span>
+              <p className="text-slate-600 mb-6">
+                <span>Please wait while we process your file...</span>
               </p>
               
               {/* Progress Bar */}
-              <div className="w-full bg-slate-200 rounded-full h-3 mb-4 overflow-hidden" data-magicpath-id="53" data-magicpath-path="PDFUploadModal.tsx">
+              <div className="w-full bg-slate-200 rounded-full h-3 mb-4 overflow-hidden">
                 <motion.div initial={{
               width: 0
             }} animate={{
               width: `${uploadProgress}%`
             }} transition={{
               duration: 0.3
-            }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full" data-magicpath-id="54" data-magicpath-path="PDFUploadModal.tsx" />
+            }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full" />
               </div>
               
-              <p className="text-sm text-slate-500" data-magicpath-id="55" data-magicpath-path="PDFUploadModal.tsx">
-                <span data-magicpath-id="56" data-magicpath-path="PDFUploadModal.tsx">{Math.round(uploadProgress)}% complete</span>
+              <p className="text-sm text-slate-500">
+                <span>{Math.round(uploadProgress)}% complete</span>
               </p>
             </div>)}
         </div>
 
         {/* Hidden File Input */}
-        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileInputChange} className="hidden" data-magicpath-id="57" data-magicpath-path="PDFUploadModal.tsx" />
+        <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileInputChange} className="hidden" />
       </motion.div>
     </motion.div>;
 };
