@@ -8,22 +8,68 @@ import type {
   OpenAIRequest,
   OpenAIResponse,
 } from '../types/creditReport';
+import type { ProcessingProgress } from '../types/enhancedCreditReport';
+import { getOpenAIKey } from '../settings/openai';
+import { LateChunkingService } from './lateChunkingService';
+import { EnhancedAIAnalyzer } from './enhancedAiAnalyzer';
 
 export class CreditAnalyzer {
   private apiKey: string;
   private baseUrl: string;
+  private lateChunkingService: LateChunkingService;
+  private enhancedAnalyzer: EnhancedAIAnalyzer;
 
   constructor() {
     this.apiKey = API_CONFIG.OPENAI_API_KEY;
     this.baseUrl = API_CONFIG.OPENAI_BASE_URL;
+    this.lateChunkingService = new LateChunkingService();
+    this.enhancedAnalyzer = new EnhancedAIAnalyzer({
+      enableProgressiveResults: true,
+      enableBackgroundProcessing: true,
+      fallbackToTraditional: true
+    });
   }
 
   async analyzeCreditReport(
     pdfDocument: PDFDocument,
     analysisType: AnalysisType,
-    customPrompt?: string
+    customPrompt?: string,
+    useLateChunking?: boolean,
+    progressCallback?: (progress: ProcessingProgress) => void
   ): Promise<AnalysisResult> {
     try {
+      // Determine if enhanced processing is needed
+      const needsEnhancedProcessing = this.shouldUseEnhancedProcessing(pdfDocument);
+      
+      if (needsEnhancedProcessing) {
+        console.log('Using enhanced AI analyzer for large/complex document');
+        
+        // Convert PDFDocument to File for enhanced processing
+        const file = await this.convertPDFDocumentToFile(pdfDocument);
+        const enhancedResult = await this.enhancedAnalyzer.analyzeEnhancedCreditReport(
+          file,
+          analysisType === 'late_chunking' ? 'full' : analysisType,
+          customPrompt,
+          progressCallback
+        );
+        
+        // Convert enhanced result to standard format
+        return this.convertEnhancedResultToStandard(enhancedResult);
+      }
+      
+      // Use late chunking for large documents or when explicitly requested
+      if (analysisType === 'late_chunking' || useLateChunking || this.shouldUseLateChunking(pdfDocument)) {
+        console.log('Using late chunking approach for enhanced context preservation');
+        return await this.lateChunkingService.analyzeCreditReportWithLateChunking(
+          pdfDocument,
+          analysisType === 'late_chunking' ? 'full' : analysisType,
+          customPrompt
+        );
+      }
+
+      // Traditional analysis approach
+      console.log('Using traditional analysis approach');
+      
       // Extract text from all pages
       const fullText = this.extractFullText(pdfDocument);
 
@@ -41,6 +87,44 @@ export class CreditAnalyzer {
       console.error('AI Analysis Error:', error);
       throw new Error('Failed to analyze credit report');
     }
+  }
+
+  private shouldUseLateChunking(pdfDocument: PDFDocument): boolean {
+    // Use late chunking for large documents that might exceed context limits
+    const totalTextLength = this.extractFullText(pdfDocument).length;
+    const pageCount = pdfDocument.totalPages;
+    
+    // Heuristic: Use late chunking if document is large or has many pages
+    return totalTextLength > 15000 || pageCount > 10;
+  }
+
+  private shouldUseEnhancedProcessing(pdfDocument: PDFDocument): boolean {
+    // Use enhanced processing for very large documents (>50 pages or >100k chars)
+    const totalTextLength = this.extractFullText(pdfDocument).length;
+    const pageCount = pdfDocument.totalPages;
+    
+    return totalTextLength > 100000 || pageCount > 50;
+  }
+
+  private async convertPDFDocumentToFile(pdfDocument: PDFDocument): Promise<File> {
+    // This is a simplified conversion - in a real implementation, you'd need
+    // to reconstruct the PDF file from the document data
+    const text = this.extractFullText(pdfDocument);
+    const blob = new Blob([text], { type: 'text/plain' });
+    return new File([blob], 'credit-report.txt', { type: 'text/plain' });
+  }
+
+  private convertEnhancedResultToStandard(enhancedResult: any): AnalysisResult {
+    return {
+      totalIssues: enhancedResult.totalIssues,
+      critical: enhancedResult.critical,
+      warning: enhancedResult.warning,
+      attention: enhancedResult.attention,
+      info: enhancedResult.info,
+      issues: enhancedResult.issues,
+      summary: enhancedResult.summary,
+      confidence: enhancedResult.confidence
+    };
   }
 
   private extractFullText(pdfDocument: PDFDocument): string {
@@ -68,7 +152,15 @@ ${fullText}
 3. Dispute and accuracy issues
 4. Any other legal concerns
 
-Provide specific page references and detailed explanations for each issue found.`,
+Provide specific page references and detailed explanations for each issue found. Include a short exact anchor text snippet from the report that best pinpoints the issue on that page.`,
+
+      late_chunking: `Conduct a comprehensive contextual analysis of this credit report using advanced late chunking methodology. Identify:
+1. FCRA violations and compliance issues with enhanced context awareness
+2. Collection account problems with cross-page relationship analysis
+3. Dispute and accuracy issues with preserved document context
+4. Any other legal concerns leveraging full document understanding
+
+This analysis benefits from preserved document context through late chunking embedding technology. Provide specific page references and detailed explanations for each issue found.`,
 
       fcra: `Focus specifically on Fair Credit Reporting Act (FCRA) compliance. Identify:
 1. Section 611 violations (dispute procedures)
@@ -99,6 +191,8 @@ Check if disputes were properly investigated and resolved.`,
 
     return basePrompt + (typeSpecificPrompts[analysisType] || typeSpecificPrompts.full) + `
 
+When you list each issue, also provide an anchorText field: a short exact quote (<= 120 characters) copied verbatim from the report text on that page that best pinpoints the issue. Prefer a unique phrase that can be located precisely.
+
 Format your response as a JSON object with this exact structure:
 {
   "totalIssues": number,
@@ -114,6 +208,7 @@ Format your response as a JSON object with this exact structure:
       "description": "detailed description of the issue",
       "severity": "high|medium|low",
       "pageNumber": number,
+      "anchorText": "short exact quote from the report on that page that identifies the issue (<=120 chars)",
       "fcraSection": "specific FCRA section if applicable",
       "recommendedAction": "specific recommended action"
     }
@@ -142,10 +237,15 @@ Only return valid JSON, no additional text or explanation.`;
       max_tokens: 4000,
     };
 
+    const apiKey = getOpenAIKey() || this.apiKey;
+    if (!apiKey) {
+      throw new Error('Missing OpenAI API key. Please add it in Settings.');
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
@@ -204,6 +304,7 @@ Only return valid JSON, no additional text or explanation.`;
         description: issue.description || 'Issue identified',
         severity: this.validateSeverity(issue.severity),
         pageNumber: this.validatePageNumber(issue.pageNumber, totalPages),
+        anchorText: typeof issue.anchorText === 'string' ? issue.anchorText.slice(0, 200) : undefined,
         fcraSection: issue.fcraSection,
         recommendedAction: issue.recommendedAction,
       }));

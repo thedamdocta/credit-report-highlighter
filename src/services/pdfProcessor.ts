@@ -43,9 +43,10 @@ export class PDFProcessor {
       const viewport = page.getViewport({ scale: 1 });
       const { width, height } = viewport;
 
-      // Extract text content
+      // Extract text content and tokens (with positions)
       const textContent = await page.getTextContent();
       const text = this.extractTextFromContent(textContent);
+      const tokens = this.extractTokensFromContent(textContent, viewport);
 
       return {
         pageNumber,
@@ -53,6 +54,7 @@ export class PDFProcessor {
         width,
         height,
         rotation: 0, // Default rotation
+        tokens,
       };
     } catch (error) {
       console.error(`Error processing page ${pageNumber}:`, error);
@@ -76,6 +78,43 @@ export class PDFProcessor {
       .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  // Extract positioned text tokens from PDF.js textContent.
+  // Coordinates are returned in page units with origin at top-left to match overlay rendering.
+  private extractTokensFromContent(textContent: any, viewport: any) {
+    if (!textContent || !Array.isArray(textContent.items)) {
+      return [];
+    }
+
+    const pageHeight = viewport?.height ?? 842;
+
+    return textContent.items.map((item: any) => {
+      const str: string = typeof item?.str === 'string' ? item.str : '';
+      const tr: number[] = Array.isArray(item?.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
+
+      // PDF transform matrix: [a, b, c, d, e, f]
+      const x = typeof tr[4] === 'number' ? tr[4] : 0; // left in PDF coordinate space (origin bottom-left)
+      const yBottom = typeof tr[5] === 'number' ? tr[5] : 0; // baseline/bottom in PDF coordinate space
+
+      // Approximate width/height
+      const height = Math.abs(typeof tr[3] === 'number' ? tr[3] : (item?.height ?? 0)) || 12;
+      const width =
+        typeof item?.width === 'number'
+          ? item.width
+          : Math.max(1, str.length) * (height * 0.5); // rough fallback
+
+      // Convert to top-left origin for overlay: top = pageHeight - bottom - height
+      const top = pageHeight - yBottom - height;
+
+      return {
+        str,
+        x,
+        y: top,
+        width,
+        height,
+      };
+    });
   }
 
   private async extractMetadata(pdf: any): Promise<PDFDocument['metadata']> {

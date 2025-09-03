@@ -13,6 +13,7 @@ export interface CreditIssue {
     width: number;
     height: number;
   };
+  anchorText?: string;
   fcraSection?: string;
   recommendedAction?: string;
 }
@@ -31,8 +32,9 @@ export interface AnalysisResult {
 
 export interface PDFProcessingRequest {
   file: File;
-  analysisType: 'full' | 'fcra' | 'collections' | 'disputes' | 'custom';
+  analysisType: 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking';
   customPrompt?: string;
+  useLateChunking?: boolean;
 }
 
 export interface PDFHighlightRequest {
@@ -68,6 +70,14 @@ export interface PDFDocument {
   };
 }
 
+export interface TextToken {
+  str: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface PDFPage {
   pageNumber: number;
   text: string;
@@ -75,6 +85,7 @@ export interface PDFPage {
   height: number;
   fontSize?: number;
   rotation?: number;
+  tokens?: TextToken[];
 }
 
 export interface HighlightPosition {
@@ -117,4 +128,4 @@ export interface OpenAIResponse {
   };
 }
 
-export type AnalysisType = 'full' | 'fcra' | 'collections' | 'disputes' | 'custom';
+export type AnalysisType = 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking';

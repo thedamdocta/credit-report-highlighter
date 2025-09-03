@@ -98,8 +98,9 @@ export function usePDFProcessing(): UsePDFProcessingResult {
         message: 'Starting AI analysis...',
       });
 
-      // Perform AI analysis
-      const result = await analyzer.analyzeCreditReport(pdfDocument, analysisType, customPrompt);
+      // Perform AI analysis with late chunking support
+      const useLateChunking = analysisType === 'late_chunking';
+      const result = await analyzer.analyzeCreditReport(pdfDocument, analysisType, customPrompt, useLateChunking);
 
       setProcessingStatus({
         status: 'completed',

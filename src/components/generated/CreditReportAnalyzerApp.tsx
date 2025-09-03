@@ -11,6 +11,7 @@ import { VercelV0Chat } from '../ui/v0-ai-chat';
 import FileUpload from '../ui/file-upload';
 import { usePDFProcessing } from '../../hooks/usePDFProcessing';
 import { HighlightGenerator } from '../../services/highlightGenerator';
+import { SettingsModal } from './SettingsModal';
 
 interface UploadedFile {
   file: File;
@@ -50,6 +51,7 @@ export const CreditReportAnalyzerApp = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<'welcome' | 'chat'>('welcome');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Use the PDF processing hook
   const {
@@ -85,7 +87,7 @@ export const CreditReportAnalyzerApp = () => {
     }
   }, [realAnalysisResult, uploadedFile]);
 
-  // Auto-minimize sidebar when PDF is uploaded
+  // Keep sidebar closed when PDF is uploaded
   useEffect(() => {
     if (uploadedFile) {
       setIsSidebarOpen(false);
@@ -94,6 +96,14 @@ export const CreditReportAnalyzerApp = () => {
 
   const handleFileUpload = useCallback(async (file: File) => {
     try {
+      // Close sidebar immediately and wait for state to update
+      setIsSidebarOpen(false);
+      setShowUploadModal(false);
+      setActiveView('chat');
+      
+      // Longer delay to ensure sidebar close animation fully completes before PDF loads
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const url = URL.createObjectURL(file);
       setUploadedFile({
         file,
@@ -101,8 +111,6 @@ export const CreditReportAnalyzerApp = () => {
         name: file.name,
         size: file.size
       });
-      setShowUploadModal(false);
-      setActiveView('chat');
 
       // Process the PDF with real functionality
       await processPDF(file);
@@ -120,10 +128,11 @@ export const CreditReportAnalyzerApp = () => {
 
     try {
       // Determine analysis type based on prompt
-      let analysisType: 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' = 'full';
+      let analysisType: 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking' = 'full';
       const lowerPrompt = prompt.toLowerCase();
       
-      if (lowerPrompt.includes('fcra')) analysisType = 'fcra';
+      if (lowerPrompt.includes('late chunking') || lowerPrompt.includes('late_chunking')) analysisType = 'late_chunking';
+      else if (lowerPrompt.includes('fcra')) analysisType = 'fcra';
       else if (lowerPrompt.includes('collection')) analysisType = 'collections';
       else if (lowerPrompt.includes('dispute')) analysisType = 'disputes';
       else if (prompt !== 'full') analysisType = 'custom';
@@ -203,7 +212,7 @@ export const CreditReportAnalyzerApp = () => {
             animate={{ x: 0, opacity: 1 }} 
             exit={{ x: -280, opacity: 0 }} 
             transition={{ type: "spring", damping: 25, stiffness: 200 }} 
-            className="w-70 bg-white border-r border-gray-200 flex flex-col shadow-sm lg:relative absolute left-0 top-0 bottom-0 z-50"
+            className="w-70 bg-white border-r border-gray-200 flex flex-col shadow-sm absolute left-0 top-0 bottom-0 z-50"
           >
             {/* Sidebar Header */}
             <div className="p-4 border-b border-gray-200">
@@ -274,7 +283,9 @@ export const CreditReportAnalyzerApp = () => {
 
             {/* Bottom Section */}
             <div className="p-4 border-t border-gray-200">
-              <button className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-3">
+              <button 
+                onClick={() => setSettingsOpen(true)}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-3">
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>
               </button>
@@ -287,16 +298,16 @@ export const CreditReportAnalyzerApp = () => {
       {!isSidebarOpen && (
         <button
           onClick={toggleSidebar}
-          className="fixed top-4 left-4 z-40 p-2 bg-white border border-gray-200 rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+          className="fixed top-3 left-2 z-40 p-1 hover:bg-gray-100 rounded transition-colors text-gray-700"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-3 h-3" />
         </button>
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex">
         {/* Main Content */}
-        <div className="flex-1 bg-white overflow-hidden">
+        <div className="flex-1 bg-white">
           {activeView === 'welcome' && !uploadedFile ? (
             <div className="h-full flex flex-col items-center justify-center p-8 overflow-y-auto">
               <div className="max-w-4xl w-full">
@@ -377,6 +388,9 @@ export const CreditReportAnalyzerApp = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Settings Modal */}
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Error Display */}
       {error && (

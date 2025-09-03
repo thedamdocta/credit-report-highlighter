@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, Maximize2, Loader2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, Loader2 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -31,7 +31,8 @@ export const SimplePDFViewer = ({
 }: SimplePDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoomLevel, setZoomLevel] = useState(75);
+  const [displayZoom, setDisplayZoom] = useState(100);
   const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -48,10 +49,12 @@ export const SimplePDFViewer = ({
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 25, 300));
+    setDisplayZoom(prev => Math.min(prev + 25, 400));
   }, []);
 
   const handleZoomOut = useCallback(() => {
     setZoomLevel(prev => Math.max(prev - 25, 50));
+    setDisplayZoom(prev => Math.max(prev - 25, 75));
   }, []);
 
   const handlePrevPage = useCallback(() => {
@@ -115,21 +118,21 @@ export const SimplePDFViewer = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* Toolbar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b border-gray-200 px-3 py-2 pl-10 flex items-center justify-between">
+        <div className="flex items-center gap-2">
           {/* Page Navigation */}
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-1 px-2 py-1">
             <button 
               onClick={handlePrevPage} 
               disabled={pageNumber <= 1} 
-              className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3 h-3" />
             </button>
             
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-1 text-xs">
               <input 
                 type="number" 
                 value={pageNumber} 
@@ -141,7 +144,7 @@ export const SimplePDFViewer = ({
                 }}
                 min={1} 
                 max={numPages} 
-                className="w-12 text-center bg-white border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                className="w-8 text-center bg-white border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" 
               />
               <span className="text-gray-600">of {numPages || '...'}</span>
             </div>
@@ -149,53 +152,47 @@ export const SimplePDFViewer = ({
             <button 
               onClick={handleNextPage} 
               disabled={pageNumber >= numPages} 
-              className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3 h-3" />
             </button>
           </div>
 
           {/* Zoom Controls */}
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-1 px-2 py-1">
             <button 
               onClick={handleZoomOut} 
-              disabled={zoomLevel <= 50} 
-              className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={displayZoom <= 75} 
+              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ZoomOut className="w-4 h-4" />
+              <ZoomOut className="w-3 h-3" />
             </button>
             
-            <span className="text-sm font-medium text-gray-700 min-w-[3rem] text-center">
-              {zoomLevel}%
+            <span className="text-xs font-medium text-gray-700 min-w-[2.5rem] text-center">
+              {displayZoom}%
             </span>
             
             <button 
               onClick={handleZoomIn} 
-              disabled={zoomLevel >= 300} 
-              className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={displayZoom >= 400} 
+              className="p-0.5 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ZoomIn className="w-4 h-4" />
+              <ZoomIn className="w-3 h-3" />
             </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <Maximize2 className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
       {/* PDF Content Area */}
-      <div className="flex-1 overflow-y-auto bg-gray-100">
-        <div className="flex justify-center p-8 pb-32">
+      <div className="flex-1 overflow-y-auto bg-gray-100 relative">
+        <div className="absolute inset-0 flex justify-center p-8 pb-96 overflow-y-auto">
           <div className="relative">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              transition={{ duration: 0.3 }}
-              className="bg-white shadow-lg rounded-lg overflow-hidden relative"
-            >
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                transition={{ duration: 0.3 }}
+                className="bg-white shadow-lg rounded-lg overflow-hidden relative"
+              >
               {loadError ? (
                 <div className="flex items-center justify-center p-8 min-w-[400px] min-h-[500px]">
                   <div className="text-center">
@@ -257,7 +254,7 @@ export const SimplePDFViewer = ({
                   ))}
                 </div>
               )}
-            </motion.div>
+              </motion.div>
 
             {/* Analysis Loading Overlay */}
             <AnimatePresence>
