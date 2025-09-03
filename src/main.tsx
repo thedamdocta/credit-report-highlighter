@@ -1,4 +1,9 @@
 import { StrictMode } from 'react';
+import setupPDFJS from './utils/pdfSetup';
+
+// Configure PDF.js before rendering any PDF components
+setupPDFJS();
+
 // Force light mode by removing dark class and preventing it from being added
 document.documentElement.classList.remove('dark');
 
@@ -27,6 +32,7 @@ import App from './App.tsx';
 import { RootDnd } from './dnd-kit/RootDnd.tsx';
 import { DragStateProvider } from './dnd-kit/DragStateContext.tsx';
 import { MoveProvider } from './dnd-kit/MoveContext.tsx';
+import { Toaster } from './components/ui/sonner-provider.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -34,6 +40,7 @@ createRoot(document.getElementById('root')!).render(
       <DragStateProvider>
         <RootDnd>
           <App />
+          <Toaster />
         </RootDnd>
       </DragStateProvider>
     </MoveProvider>

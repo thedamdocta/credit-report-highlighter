@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Upload Test</title>
+</head>
+<body>
+    <h1>PDF Upload Test</h1>
+    <p>Testing PDF upload functionality with actual file</p>
+    
+    <script>
+        // Function to test PDF upload with the actual file
+        async function testPDFUpload() {
+            try {
+                // Fetch the PDF file from the project
+                const response = await fetch('/src/Brittney Bradwell Equifax.pdf');
+                const blob = await response.blob();
+                const file = new File([blob], 'Brittney Bradwell Equifax.pdf', { type: 'application/pdf' });
+                
+                console.log('Test PDF file created:', file);
+                console.log('File size:', file.size);
+                console.log('File type:', file.type);
+                
+                // Navigate to the main app
+                window.location.href = '/';
+                
+                // Store the file for testing
+                window.testPDFFile = file;
+                
+            } catch (error) {
+                console.error('Error loading test PDF:', error);
+            }
+        }
+        
+        // Auto-start test
+        testPDFUpload();
+    </script>
+</body>
+</html>

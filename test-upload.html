@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Upload Test</title>
+</head>
+<body>
+    <script>
+        // Test PDF upload functionality
+        console.log('🧪 PDF Upload Test Starting...');
+
+        async function testPDFUpload() {
+            try {
+                // Wait for the page to load
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Find the file input
+                const fileInput = document.querySelector('input[type="file"]');
+                if (!fileInput) {
+                    console.error('❌ File input not found');
+                    return;
+                }
+
+                console.log('✅ File input found');
+
+                // Fetch the PDF file from the project
+                const response = await fetch('/src/Brittney Bradwell Equifax.pdf');
+                if (!response.ok) {
+                    console.error('❌ Failed to fetch PDF file');
+                    return;
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const file = new File([arrayBuffer], 'Brittney Bradwell Equifax.pdf', {
+                    type: 'application/pdf'
+                });
+
+                console.log('✅ PDF file loaded:', file.name, file.size, 'bytes');
+
+                // Create a DataTransfer object to simulate file selection
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+
+                // Trigger the change event
+                const changeEvent = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(changeEvent);
+
+                console.log('✅ File upload triggered');
+
+                // Wait for processing
+                setTimeout(() => {
+                    console.log('🔍 Checking for PDF viewer...');
+                    
+                    // Look for PDF viewer elements
+                    const pdfViewer = document.querySelector('[data-testid="pdf-viewer"], .react-pdf__Page, canvas');
+                    if (pdfViewer) {
+                        console.log('✅ PDF viewer found!', pdfViewer);
+                    } else {
+                        console.log('❌ PDF viewer not found');
+                    }
+
+                    // Check for page navigation
+                    const pageControls = document.querySelector('input[type="number"]');
+                    if (pageControls) {
+                        console.log('✅ Page controls found:', pageControls.value);
+                    } else {
+                        console.log('❌ Page controls not found');
+                    }
+
+                }, 3000);
+
+            } catch (error) {
+                console.error('❌ Test failed:', error);
+            }
+        }
+
+        // Run test when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', testPDFUpload);
+        } else {
+            testPDFUpload();
+        }
+    </script>
+</body>
+</html>

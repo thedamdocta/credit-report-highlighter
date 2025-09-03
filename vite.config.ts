@@ -11,4 +11,25 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
+  },
+  assetsInclude: ['**/*.pdf'],
+  define: {
+    global: 'globalThis',
+  },
+  server: {
+    fs: {
+      allow: ['..', 'node_modules/pdfjs-dist']
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdfjs': ['pdfjs-dist']
+        }
+      }
+    }
+  }
 });

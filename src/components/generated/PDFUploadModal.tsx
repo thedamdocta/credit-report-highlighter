@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Progress } from '../ui/progress';
 interface PDFUploadModalProps {
   onFileUpload: (file: File) => void;
   onClose: () => void;
@@ -30,11 +32,17 @@ export const PDFUploadModal = ({
     const validationError = validateFile(file);
     if (validationError) {
       setError(validationError);
+      toast.error(validationError);
       return;
     }
     setError(null);
     setIsUploading(true);
     setUploadProgress(0);
+
+    // Show upload started toast
+    toast.loading('Uploading credit report...', {
+      id: 'upload-progress'
+    });
 
     // Simulate upload progress
     const progressInterval = setInterval(() => {
@@ -51,6 +59,13 @@ export const PDFUploadModal = ({
     setTimeout(() => {
       clearInterval(progressInterval);
       setUploadProgress(100);
+
+      // Update toast to success
+      toast.success('Credit report uploaded successfully!', {
+        id: 'upload-progress',
+        description: `File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`
+      });
+
       setTimeout(() => {
         onFileUpload(file);
         setIsUploading(false);
@@ -214,14 +229,8 @@ export const PDFUploadModal = ({
               </p>
               
               {/* Progress Bar */}
-              <div className="w-full bg-slate-200 rounded-full h-3 mb-4 overflow-hidden">
-                <motion.div initial={{
-              width: 0
-            }} animate={{
-              width: `${uploadProgress}%`
-            }} transition={{
-              duration: 0.3
-            }} className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full" />
+              <div className="w-full mb-4">
+                <Progress value={uploadProgress} className="h-3" />
               </div>
               
               <p className="text-sm text-slate-500">

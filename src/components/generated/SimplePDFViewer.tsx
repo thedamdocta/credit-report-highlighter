@@ -1,7 +1,9 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, Maximize2, Loader2 } from 'lucide-react';
-import { Document, Page } from 'react-pdf';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 interface Highlight {
   id: string;
@@ -14,31 +16,35 @@ interface Highlight {
   description: string;
 }
 
-interface PDFViewerProps {
+interface SimplePDFViewerProps {
   fileUrl: string;
   highlights: Highlight[];
   isAnalyzing: boolean;
   pdfFile?: File;
 }
 
-// @component: PDFViewer
-export const PDFViewer = ({
+export const SimplePDFViewer = ({
   fileUrl,
   highlights,
   isAnalyzing,
   pdfFile
-}: PDFViewerProps) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+}: SimplePDFViewerProps) => {
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [rotation, setRotation] = useState(0);
   const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const handleTextSelection = (selection: any) => {
-    // Handle text selection for highlighting
-    console.log('Text selected:', selection);
-  };
+  // Reset state when file changes
+  useEffect(() => {
+    if (pdfFile || fileUrl) {
+      setPageNumber(1);
+      setNumPages(0);
+      setLoadError(null);
+      setIsLoading(true);
+    }
+  }, [pdfFile, fileUrl]);
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + 25, 300));
@@ -49,39 +55,50 @@ export const PDFViewer = ({
   }, []);
 
   const handlePrevPage = useCallback(() => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+    if (pageNumber > 1) {
+      setPageNumber(pageNumber - 1);
     }
-  }, [currentPage]);
+  }, [pageNumber]);
 
   const handleNextPage = useCallback(() => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+    if (pageNumber < numPages) {
+      setPageNumber(pageNumber + 1);
     }
-  }, [currentPage, totalPages]);
+  }, [pageNumber, numPages]);
 
-  const handleRotate = useCallback(() => {
-    setRotation(prev => (prev + 90) % 360);
+  const handleDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setIsLoading(false);
+    setLoadError(null);
   }, []);
 
-  const handlePageInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const page = parseInt(e.target.value);
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  }, [totalPages]);
+  const handleDocumentLoadError = useCallback((error: Error) => {
+    console.error('PDF load error:', error);
+    setIsLoading(false);
+    setLoadError('Failed to load PDF. Please try uploading again.');
+  }, []);
 
   const getHighlightColor = (type: Highlight['type']) => {
-    return 'bg-yellow-400/40 border-yellow-500 border-2';
+    switch (type) {
+      case 'critical':
+        return 'bg-red-400/40 border-red-500 border-2';
+      case 'warning':
+        return 'bg-orange-400/40 border-orange-500 border-2';
+      case 'attention':
+        return 'bg-yellow-400/40 border-yellow-500 border-2';
+      case 'info':
+      default:
+        return 'bg-blue-400/40 border-blue-500 border-2';
+    }
   };
 
-  const currentPageHighlights = highlights.filter(h => h.page === currentPage);
+  const currentPageHighlights = highlights.filter(h => h.page === pageNumber);
 
-  // Memoize Document options to prevent unnecessary reloads
+  // Document options with explicit worker configuration
   const documentOptions = useMemo(() => ({
-    httpHeaders: {
-      'Cache-Control': 'no-cache',
-    },
+    workerSrc: '/pdf.worker.min.js',
+    disableAutoFetch: false,
+    disableStream: false,
   }), []);
 
   if (!fileUrl && !pdfFile) {
@@ -106,7 +123,7 @@ export const PDFViewer = ({
           <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
             <button 
               onClick={handlePrevPage} 
-              disabled={currentPage <= 1} 
+              disabled={pageNumber <= 1} 
               className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -115,18 +132,23 @@ export const PDFViewer = ({
             <div className="flex items-center gap-2 text-sm">
               <input 
                 type="number" 
-                value={currentPage} 
-                onChange={handlePageInputChange} 
+                value={pageNumber} 
+                onChange={(e) => {
+                  const page = parseInt(e.target.value);
+                  if (page >= 1 && page <= numPages) {
+                    setPageNumber(page);
+                  }
+                }}
                 min={1} 
-                max={totalPages} 
+                max={numPages} 
                 className="w-12 text-center bg-white border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" 
               />
-              <span className="text-gray-600">of {totalPages}</span>
+              <span className="text-gray-600">of {numPages || '...'}</span>
             </div>
             
             <button 
               onClick={handleNextPage} 
-              disabled={currentPage >= totalPages} 
+              disabled={pageNumber >= numPages} 
               className="p-1 hover:bg-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
@@ -158,10 +180,6 @@ export const PDFViewer = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={handleRotate} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <RotateCw className="w-4 h-4" />
-          </button>
-          
           <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Maximize2 className="w-4 h-4" />
           </button>
@@ -169,74 +187,76 @@ export const PDFViewer = ({
       </div>
 
       {/* PDF Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-100" ref={containerRef}>
-        <div className="flex items-start justify-center min-h-full p-8">
+      <div className="flex-1 overflow-y-auto bg-gray-100">
+        <div className="flex justify-center p-8 pb-32">
           <div className="relative">
-            {/* PDF Document Container */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }} 
+              animate={{ opacity: 1, scale: 1 }} 
               transition={{ duration: 0.3 }}
-              className="bg-white shadow-lg rounded-lg overflow-hidden mb-8"
-              style={{
-                transform: `scale(${zoomLevel / 100}) rotate(${rotation}deg)`,
-                transformOrigin: 'center top', // Changed from 'center center'
-                marginBottom: `${(zoomLevel - 100) * 4}px`, // Add margin to accommodate scaling
-              }}
+              className="bg-white shadow-lg rounded-lg overflow-hidden relative"
             >
-              <Document
-                file={pdfFile || fileUrl}
-                options={documentOptions}
-                onLoadSuccess={({ numPages }) => setTotalPages(numPages)}
-                onLoadError={(error) => {
-                  console.error('PDF Load Error:', error);
-                }}
-                loading={
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                    <span className="ml-2">Loading PDF...</span>
-                  </div>
-                }
-                error={
-                  <div className="flex items-center justify-center p-8">
-                    <div className="text-center">
-                      <p className="text-red-600 font-medium">Failed to load PDF</p>
-                      <p className="text-gray-500 text-sm mt-2">Please try uploading the file again</p>
+              {loadError ? (
+                <div className="flex items-center justify-center p-8 min-w-[400px] min-h-[500px]">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Loader2 className="w-8 h-8 text-red-600" />
                     </div>
+                    <p className="text-red-600 mb-2">Error loading PDF</p>
+                    <p className="text-sm text-gray-500">{loadError}</p>
                   </div>
-                }
-              >
-                <Page 
-                  pageNumber={currentPage} 
-                  scale={zoomLevel / 100}
+                </div>
+              ) : (
+                <Document
+                  file={pdfFile || fileUrl}
+                  onLoadSuccess={handleDocumentLoadSuccess}
+                  onLoadError={handleDocumentLoadError}
+                  options={documentOptions}
                   loading={
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                    <div className="flex items-center justify-center p-8 min-w-[400px] min-h-[500px]">
+                      <div className="flex items-center">
+                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin mr-2" />
+                        <span>Loading PDF...</span>
+                      </div>
                     </div>
                   }
-                />
-              </Document>
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    scale={zoomLevel / 100}
+                    loading={
+                      <div className="flex items-center justify-center p-8 min-w-[400px] min-h-[500px]">
+                        <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                      </div>
+                    }
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </Document>
+              )}
 
               {/* Highlights Overlay */}
-              <div className="absolute inset-0 pointer-events-none">
-                {currentPageHighlights.map(highlight => (
-                  <motion.div 
-                    key={highlight.id} 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    className={`absolute border-2 cursor-pointer transition-all duration-200 pointer-events-auto ${getHighlightColor(highlight.type)} ${selectedHighlight === highlight.id ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`} 
-                    style={{
-                      left: `${(highlight.x / 595) * 100}%`,
-                      top: `${(highlight.y / 842) * 100}%`,
-                      width: `${(highlight.width / 595) * 100}%`,
-                      height: `${(highlight.height / 842) * 100}%`,
-                    }} 
-                    onClick={() => setSelectedHighlight(highlight.id)} 
-                    onMouseEnter={() => setSelectedHighlight(highlight.id)} 
-                    onMouseLeave={() => setSelectedHighlight(null)} 
-                  />
-                ))}
-              </div>
+              {!loadError && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {currentPageHighlights.map(highlight => (
+                    <motion.div 
+                      key={highlight.id} 
+                      initial={{ opacity: 0 }} 
+                      animate={{ opacity: 1 }} 
+                      className={`absolute cursor-pointer transition-all duration-200 pointer-events-auto ${getHighlightColor(highlight.type)} ${selectedHighlight === highlight.id ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`} 
+                      style={{
+                        left: `${(highlight.x / 595) * 100}%`,
+                        top: `${(highlight.y / 842) * 100}%`,
+                        width: `${(highlight.width / 595) * 100}%`,
+                        height: `${(highlight.height / 842) * 100}%`,
+                      }} 
+                      onClick={() => setSelectedHighlight(highlight.id)} 
+                      onMouseEnter={() => setSelectedHighlight(highlight.id)} 
+                      onMouseLeave={() => setSelectedHighlight(null)} 
+                    />
+                  ))}
+                </div>
+              )}
             </motion.div>
 
             {/* Analysis Loading Overlay */}
@@ -274,7 +294,7 @@ export const PDFViewer = ({
                   highlights.find(h => h.id === selectedHighlight)?.type === 'critical' ? 'bg-red-100 text-red-800' :
                   highlights.find(h => h.id === selectedHighlight)?.type === 'warning' ? 'bg-orange-100 text-orange-800' :
                   highlights.find(h => h.id === selectedHighlight)?.type === 'attention' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-cyan-100 text-cyan-800'
+                  'bg-blue-100 text-blue-800'
                 }`}>
                   <span>{highlights.find(h => h.id === selectedHighlight)?.type.toUpperCase()}</span>
                 </div>
