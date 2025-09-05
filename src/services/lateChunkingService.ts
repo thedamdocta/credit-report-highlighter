@@ -23,6 +23,13 @@ export interface ChunkedEmbedding {
   };
   pageNumbers: number[];
   contextPreserved: boolean;
+  metadata?: {
+    chunkIndex: number;
+    originalLength?: number;
+    startPos?: number;
+    endPos?: number;
+    contextPreserved?: boolean;
+  };
 }
 
 export interface LateChunkingConfig {
@@ -51,7 +58,7 @@ export class LateChunkingService {
       maxChunkSize: 2000,
       overlapSize: 200,
       embeddingModel: 'text-embedding-3-large',
-      analysisModel: 'gpt-4',
+      analysisModel: 'gpt-5',
       preserveContext: true,
       enableCaching: true,
       maxRetries: 3,
@@ -70,11 +77,12 @@ export class LateChunkingService {
       const fullText = this.extractFullText(pdfDocument);
       console.log(`Processing document with ${fullText.length} characters`);
 
-      // Step 2: Generate token-level embeddings for entire document
-      const documentEmbedding = await this.embedEntireDocument(fullText);
+      // Step 2: Pre-chunk the document for embedding limits
+      const initialChunks = this.createInitialChunks(fullText);
+      console.log(`Created ${initialChunks.length} initial chunks for embedding`);
       
-      // Step 3: Chunk the embeddings while preserving context
-      const chunkedEmbeddings = await this.performLateChunking(documentEmbedding, fullText);
+      // Step 3: Generate embeddings for each chunk
+      const chunkedEmbeddings = await this.performLateChunking(initialChunks);
       console.log(`Created ${chunkedEmbeddings.length} contextually-aware chunks`);
 
       // Step 4: Analyze each chunk with preserved context
@@ -101,6 +109,46 @@ export class LateChunkingService {
       .join('\n\n');
   }
 
+  /**
+   * Create initial chunks that fit within embedding limits
+   */
+  private createInitialChunks(fullText: string): string[] {
+    const maxChunkSize = 6000; // Safe limit for embedding API (well under 8192 tokens)
+    const chunks: string[] = [];
+    
+    let currentPos = 0;
+    
+    while (currentPos < fullText.length) {
+      const chunkEnd = Math.min(currentPos + maxChunkSize, fullText.length);
+      let actualEnd = chunkEnd;
+      
+      // Try to break at natural boundaries (paragraph, sentence, etc.)
+      if (chunkEnd < fullText.length) {
+        const nearbyParagraph = fullText.lastIndexOf('\n\n', chunkEnd);
+        const nearbyNewline = fullText.lastIndexOf('\n', chunkEnd);
+        const nearbySentence = fullText.lastIndexOf('. ', chunkEnd);
+        
+        // Prefer paragraph breaks, then sentence breaks, then line breaks
+        if (nearbyParagraph > currentPos + maxChunkSize * 0.6) {
+          actualEnd = nearbyParagraph + 2;
+        } else if (nearbySentence > currentPos + maxChunkSize * 0.7) {
+          actualEnd = nearbySentence + 2;
+        } else if (nearbyNewline > currentPos + maxChunkSize * 0.8) {
+          actualEnd = nearbyNewline + 1;
+        }
+      }
+      
+      const chunkText = fullText.substring(currentPos, actualEnd).trim();
+      if (chunkText.length > 0) {
+        chunks.push(chunkText);
+      }
+      
+      currentPos = actualEnd;
+    }
+    
+    return chunks;
+  }
+
   private createCacheKey(text: string): string {
     // Create a hash-like key from the text for caching
     return btoa(text.substring(0, 100)).replace(/[/+=]/g, '').substring(0, 16);
@@ -124,8 +172,9 @@ export class LateChunkingService {
     // Cost optimization: Use smaller model for cost optimization mode
     const model = this.config.costOptimization ? 'text-embedding-3-small' : this.config.embeddingModel;
     
-    // Truncate if necessary for embedding model limits (8192 tokens ≈ 32768 chars)
-    const truncatedText = text.length > 32768 ? text.substring(0, 32768) : text;
+    // OpenAI embedding models have token limits: text-embedding-3-small/large = 8192 tokens ≈ 6000-8000 chars safe limit
+    const maxChars = this.config.costOptimization ? 6000 : 8000;
+    const truncatedText = text.length > maxChars ? text.substring(0, maxChars) : text;
 
     let lastError: Error | null = null;
     let attempt = 0;
@@ -146,7 +195,9 @@ export class LateChunkingService {
         });
 
         if (!response.ok) {
-          throw new Error(`Embedding API error: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          console.error('Embedding API error details:', errorText);
+          throw new Error(`Embedding API error: ${response.status} - ${errorText.substring(0, 200)}`);
         }
 
         const data = await response.json();
@@ -176,44 +227,66 @@ export class LateChunkingService {
     throw lastError || new Error('Failed to embed document after multiple attempts');
   }
 
-  private async performLateChunking(documentEmbedding: number[], fullText: string): Promise<ChunkedEmbedding[]> {
+  private async performLateChunking(initialChunks: string[]): Promise<ChunkedEmbedding[]> {
     const chunks: ChunkedEmbedding[] = [];
-    const words = fullText.split(/\s+/);
-    const textLength = fullText.length;
     
-    let currentPosition = 0;
-    let chunkIndex = 0;
-
-    while (currentPosition < textLength) {
-      const chunkEnd = Math.min(currentPosition + this.config.maxChunkSize, textLength);
-      const chunkText = fullText.substring(currentPosition, chunkEnd);
+    console.log(`Generating embeddings for ${initialChunks.length} chunks...`);
+    
+    // Process chunks sequentially to avoid rate limiting
+    for (let index = 0; index < initialChunks.length; index++) {
+      const chunkText = initialChunks[index];
       
-      // Find which pages this chunk spans
-      const pageNumbers = this.getPageNumbersForChunk(chunkText, currentPosition, fullText);
+      try {
+        // Generate embedding for this chunk
+        console.log(`Embedding chunk ${index + 1}/${initialChunks.length} (${chunkText.length} chars)`);
+        const embedding = await this.embedEntireDocument(chunkText);
+        
+        chunks.push({
+          id: `chunk-${index}`,
+          text: chunkText,
+          embedding,
+          tokenSpan: {
+            start: 0,
+            end: chunkText.length
+          },
+          pageNumbers: [1], // Will be determined later
+          contextPreserved: true,
+          metadata: {
+            chunkIndex: index,
+            startPos: 0,
+            endPos: chunkText.length,
+            contextPreserved: true
+          }
+        });
+        
+        console.log(`✓ Successfully embedded chunk ${index + 1}`);
+        
+      } catch (error) {
+        console.error(`✗ Failed to embed chunk ${index + 1}:`, error);
+        // Return chunk without embedding rather than failing completely
+        chunks.push({
+          id: `chunk-${index}-failed`,
+          text: chunkText,
+          embedding: [],
+          tokenSpan: {
+            start: 0,
+            end: chunkText.length
+          },
+          pageNumbers: [1], // Will be determined later
+          contextPreserved: false,
+          metadata: {
+            chunkIndex: index,
+            startPos: 0,
+            endPos: chunkText.length,
+            contextPreserved: false
+          }
+        });
+      }
       
-      // Pool the document embedding for this chunk's token span
-      const chunkEmbedding = this.poolEmbeddingForChunk(
-        documentEmbedding, 
-        currentPosition, 
-        chunkEnd, 
-        textLength
-      );
-
-      chunks.push({
-        id: `chunk-${chunkIndex}`,
-        text: chunkText,
-        embedding: chunkEmbedding,
-        tokenSpan: {
-          start: currentPosition,
-          end: chunkEnd,
-        },
-        pageNumbers,
-        contextPreserved: true,
-      });
-
-      // Move forward with overlap
-      currentPosition = chunkEnd - this.config.overlapSize;
-      chunkIndex++;
+      // Small delay to avoid rate limiting
+      if (index < initialChunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
     return chunks;
@@ -385,8 +458,8 @@ Only return valid JSON, no additional text.`;
             content: prompt
           }
         ],
-        temperature: 0.1,
-        max_tokens: 4000,
+        max_completion_tokens: 128000,
+        reasoning_effort: 'high',
       }),
     });
 

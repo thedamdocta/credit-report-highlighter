@@ -502,7 +502,7 @@ Format response as JSON with enhanced structure:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4-turbo-preview',
+            model: 'gpt-5',
             messages: [
               {
                 role: 'system',
@@ -513,8 +513,8 @@ Format response as JSON with enhanced structure:
                 content: prompt
               }
             ],
-            temperature: 0.1,
-            max_tokens: 4000,
+            max_completion_tokens: 128000,
+            reasoning_effort: 'high',
           }),
         });
 

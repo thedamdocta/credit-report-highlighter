@@ -28,6 +28,13 @@ export interface AnalysisResult {
   processedPdfUrl?: string;
   summary: string;
   confidence: number;
+  analysisMetadata?: {
+    method?: string;
+    contextPreserved?: boolean;
+    chunkingUsed?: boolean;
+    fullDocumentAnalysis?: boolean;
+    chunksAnalyzed?: number;
+  };
 }
 
 export interface PDFProcessingRequest {
@@ -128,4 +135,4 @@ export interface OpenAIResponse {
   };
 }
 
-export type AnalysisType = 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking';
+export type AnalysisType = 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking' | 'hybrid';

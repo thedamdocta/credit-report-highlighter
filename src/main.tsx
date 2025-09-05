@@ -33,16 +33,19 @@ import { RootDnd } from './dnd-kit/RootDnd.tsx';
 import { DragStateProvider } from './dnd-kit/DragStateContext.tsx';
 import { MoveProvider } from './dnd-kit/MoveContext.tsx';
 import { Toaster } from './components/ui/sonner-provider.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MoveProvider>
-      <DragStateProvider>
-        <RootDnd>
-          <App />
-          <Toaster />
-        </RootDnd>
-      </DragStateProvider>
-    </MoveProvider>
+    <ErrorBoundary>
+      <MoveProvider>
+        <DragStateProvider>
+          <RootDnd>
+            <App />
+            <Toaster />
+          </RootDnd>
+        </DragStateProvider>
+      </MoveProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

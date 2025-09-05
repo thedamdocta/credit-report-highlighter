@@ -51,7 +51,7 @@ export class EnhancedLateChunkingService {
       preserveTableIntegrity: true,
       crossPageContextWindow: 10, // Expanded context window
       embeddingModel: 'text-embedding-3-large',
-      analysisModel: 'gpt-4-turbo-preview',
+      analysisModel: 'gpt-5',
       enableHierarchicalContext: true,
       enableDocumentEmbedding: true,
       hierarchicalContextLayers: 3, // Document -> Section -> Chunk
@@ -645,8 +645,8 @@ Format your response as JSON:
                 content: prompt
               }
             ],
-            temperature: 0.1,
-            max_tokens: 4000,
+            max_completion_tokens: 128000,
+            reasoning_effort: 'high',
           }),
         });
 

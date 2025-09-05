@@ -12,12 +12,18 @@ import type { ProcessingProgress } from '../types/enhancedCreditReport';
 import { getOpenAIKey } from '../settings/openai';
 import { LateChunkingService } from './lateChunkingService';
 import { EnhancedAIAnalyzer } from './enhancedAiAnalyzer';
+import { GeminiCreditAnalyzer } from './geminiAnalyzer';
+import { HybridCreditAnalyzer } from './hybridAnalyzer';
+import { EnhancedCreditAnalyzer } from './enhancedCreditAnalyzer';
 
 export class CreditAnalyzer {
   private apiKey: string;
   private baseUrl: string;
   private lateChunkingService: LateChunkingService;
   private enhancedAnalyzer: EnhancedAIAnalyzer;
+  private geminiAnalyzer: GeminiCreditAnalyzer;
+  private hybridAnalyzer: HybridCreditAnalyzer;
+  private enhancedCreditAnalyzer: EnhancedCreditAnalyzer;
 
   constructor() {
     this.apiKey = API_CONFIG.OPENAI_API_KEY;
@@ -28,6 +34,9 @@ export class CreditAnalyzer {
       enableBackgroundProcessing: true,
       fallbackToTraditional: true
     });
+    this.geminiAnalyzer = new GeminiCreditAnalyzer();
+    this.hybridAnalyzer = new HybridCreditAnalyzer();
+    this.enhancedCreditAnalyzer = new EnhancedCreditAnalyzer();
   }
 
   async analyzeCreditReport(
@@ -38,93 +47,14 @@ export class CreditAnalyzer {
     progressCallback?: (progress: ProcessingProgress) => void
   ): Promise<AnalysisResult> {
     try {
-      // Determine if enhanced processing is needed
-      const needsEnhancedProcessing = this.shouldUseEnhancedProcessing(pdfDocument);
-      
-      if (needsEnhancedProcessing) {
-        console.log('Using enhanced AI analyzer for large/complex document');
-        
-        // Convert PDFDocument to File for enhanced processing
-        const file = await this.convertPDFDocumentToFile(pdfDocument);
-        const enhancedResult = await this.enhancedAnalyzer.analyzeEnhancedCreditReport(
-          file,
-          analysisType === 'late_chunking' ? 'full' : analysisType,
-          customPrompt,
-          progressCallback
-        );
-        
-        // Convert enhanced result to standard format
-        return this.convertEnhancedResultToStandard(enhancedResult);
-      }
-      
-      // Use late chunking for large documents or when explicitly requested
-      if (analysisType === 'late_chunking' || useLateChunking || this.shouldUseLateChunking(pdfDocument)) {
-        console.log('Using late chunking approach for enhanced context preservation');
-        return await this.lateChunkingService.analyzeCreditReportWithLateChunking(
-          pdfDocument,
-          analysisType === 'late_chunking' ? 'full' : analysisType,
-          customPrompt
-        );
-      }
-
-      // Traditional analysis approach
-      console.log('Using traditional analysis approach');
-      
-      // Extract text from all pages
-      const fullText = this.extractFullText(pdfDocument);
-
-      // Create analysis prompt based on type
-      const prompt = this.createAnalysisPrompt(analysisType, fullText, customPrompt);
-
-      // Call OpenAI API
-      const response = await this.callOpenAI(prompt);
-
-      // Parse and validate the response
-      const analysisResult = this.parseAnalysisResponse(response, pdfDocument.totalPages);
-
-      return analysisResult;
+      // ONLY use Enhanced Credit Analyzer with GPT-5 and Late Chunking
+      // No fallbacks - fail cleanly if this doesn't work
+      console.log('🎯 Using Enhanced Credit Analyzer with GPT-5 Late Chunking for comprehensive error detection');
+      return await this.enhancedCreditAnalyzer.analyzeWithLateChunking(pdfDocument);
     } catch (error) {
       console.error('AI Analysis Error:', error);
       throw new Error('Failed to analyze credit report');
     }
-  }
-
-  private shouldUseLateChunking(pdfDocument: PDFDocument): boolean {
-    // Use late chunking for large documents that might exceed context limits
-    const totalTextLength = this.extractFullText(pdfDocument).length;
-    const pageCount = pdfDocument.totalPages;
-    
-    // Heuristic: Use late chunking if document is large or has many pages
-    return totalTextLength > 15000 || pageCount > 10;
-  }
-
-  private shouldUseEnhancedProcessing(pdfDocument: PDFDocument): boolean {
-    // Use enhanced processing for very large documents (>50 pages or >100k chars)
-    const totalTextLength = this.extractFullText(pdfDocument).length;
-    const pageCount = pdfDocument.totalPages;
-    
-    return totalTextLength > 100000 || pageCount > 50;
-  }
-
-  private async convertPDFDocumentToFile(pdfDocument: PDFDocument): Promise<File> {
-    // This is a simplified conversion - in a real implementation, you'd need
-    // to reconstruct the PDF file from the document data
-    const text = this.extractFullText(pdfDocument);
-    const blob = new Blob([text], { type: 'text/plain' });
-    return new File([blob], 'credit-report.txt', { type: 'text/plain' });
-  }
-
-  private convertEnhancedResultToStandard(enhancedResult: any): AnalysisResult {
-    return {
-      totalIssues: enhancedResult.totalIssues,
-      critical: enhancedResult.critical,
-      warning: enhancedResult.warning,
-      attention: enhancedResult.attention,
-      info: enhancedResult.info,
-      issues: enhancedResult.issues,
-      summary: enhancedResult.summary,
-      confidence: enhancedResult.confidence
-    };
   }
 
   private extractFullText(pdfDocument: PDFDocument): string {
@@ -221,8 +151,8 @@ Only return valid JSON, no additional text or explanation.`;
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
-    const request: OpenAIRequest = {
-      model: 'gpt-4',
+    const request: any = {
+      model: 'gpt-5',
       messages: [
         {
           role: 'system',
@@ -233,8 +163,10 @@ Only return valid JSON, no additional text or explanation.`;
           content: prompt
         }
       ],
-      temperature: 0.1,
-      max_tokens: 4000,
+      // GPT-5 specific: use max_completion_tokens instead of max_tokens
+      max_completion_tokens: 128000,
+      // GPT-5 reasoning parameters
+      reasoning_effort: 'high'
     };
 
     const apiKey = getOpenAIKey() || this.apiKey;

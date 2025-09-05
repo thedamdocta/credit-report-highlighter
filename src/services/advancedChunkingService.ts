@@ -46,7 +46,7 @@ export class AdvancedChunkingService {
       preserveTableIntegrity: true,
       crossPageContextWindow: 5,
       embeddingModel: 'text-embedding-3-large',
-      analysisModel: 'gpt-4-turbo-preview',
+      analysisModel: 'gpt-5',
       enableParallelProcessing: true,
       enableSmartCaching: true,
       maxRetries: 3,

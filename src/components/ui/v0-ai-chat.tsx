@@ -112,11 +112,11 @@ export function VercelV0Chat({ onAnalysisRequest, canAnalyze = false }: VercelV0
         if (!canAnalyze || !onAnalysisRequest) return;
 
         const prompts = {
-            'full': 'Perform a comprehensive analysis of this credit report and highlight all potential legal issues.',
-            'late_chunking': 'Perform an advanced late chunking analysis of this credit report with enhanced context preservation to identify all potential legal issues with maximum accuracy.',
-            'fcra': 'Analyze this credit report for potential Fair Credit Reporting Act (FCRA) violations and highlight any compliance issues.',
-            'collections': 'Analyze all collection accounts for accuracy, validation requirements, and potential FDCPA violations.',
-            'disputes': 'Identify and highlight all disputed accounts and verify they are properly marked according to FCRA requirements.'
+            'full': 'Using GPT-5 with late chunking, analyze this credit report comprehensively. Highlight ALL: missing account numbers, missing account names, incomplete payment information, inconsistent payment data across tables, FCRA violations, and any data quality issues.',
+            'late_chunking': 'Perform GPT-5 enhanced late chunking analysis to detect and highlight: missing account numbers, missing creditor names, payment history gaps, inconsistent payment amounts/statuses between tables, accounts older than 7 years, and all FCRA compliance issues.',
+            'fcra': 'Analyze for FCRA violations and highlight: accounts past 7-year reporting limit, missing dispute notations, incomplete account information, missing account numbers/names, and improper account status reporting.',
+            'collections': 'Analyze collection accounts and highlight: missing account numbers, missing original creditor info, validation issues, statute of limitations violations, incomplete payment histories, and FDCPA compliance issues.',
+            'disputes': 'Identify disputed accounts and highlight: missing dispute markers, unresolved disputes, missing account identifiers, inconsistent dispute statuses, and accounts that should be marked as disputed but are not.'
         };
 
         const prompt = prompts[actionType as keyof typeof prompts];
@@ -215,13 +215,13 @@ export function VercelV0Chat({ onAnalysisRequest, canAnalyze = false }: VercelV0
                 <div className="flex items-center justify-center gap-2 mt-3">
                     <ActionButton
                         icon={<Zap className="w-4 h-4" />}
-                        label="Full Analysis"
+                        label="Full Analysis (GPT-5)"
                         onClick={() => handleQuickAction('full')}
                         disabled={!canAnalyze}
                     />
                     <ActionButton
                         icon={<Sparkles className="w-4 h-4" />}
-                        label="Late Chunking"
+                        label="Deep Analysis"
                         onClick={() => handleQuickAction('late_chunking')}
                         disabled={!canAnalyze}
                     />
@@ -233,13 +233,13 @@ export function VercelV0Chat({ onAnalysisRequest, canAnalyze = false }: VercelV0
                     />
                     <ActionButton
                         icon={<TrendingUp className="w-4 h-4" />}
-                        label="Collections Analysis"
+                        label="Collections Check"
                         onClick={() => handleQuickAction('collections')}
                         disabled={!canAnalyze}
                     />
                     <ActionButton
                         icon={<FileSearch className="w-4 h-4" />}
-                        label="Disputed Accounts"
+                        label="Dispute Validation"
                         onClick={() => handleQuickAction('disputes')}
                         disabled={!canAnalyze}
                     />

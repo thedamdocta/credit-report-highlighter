@@ -5,8 +5,10 @@ import { pdfjs } from 'react-pdf';
  * Call this function before rendering any PDF components
  */
 export default function setupPDFJS() {
-  // Configure PDF.js worker to use local file
+  if (typeof window === 'undefined') return;
+  
+  // Use local worker file to avoid CORS and network issues
   pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
   
-  console.log('PDF.js setup completed with worker:', pdfjs.GlobalWorkerOptions.workerSrc);
+  console.log('PDF.js setup completed with local worker file');
 }

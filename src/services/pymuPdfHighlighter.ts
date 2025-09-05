@@ -281,9 +281,30 @@ export class PyMuPDFHighlightService implements HighlightService {
       // Attempt to use PyMuPDF4LLM API
       const formData = new FormData();
       formData.append('pdf', new Blob([arrayBuffer], { type: 'application/pdf' }));
-      formData.append('highlights', JSON.stringify(highlightData));
+      
+      // Convert our highlighting data to the format expected by the Python server
+      const allRegions: any[] = [];
+      highlightData.pageHighlights.forEach((regions, pageNum) => {
+        regions.forEach(region => {
+          allRegions.push({
+            id: `region-${pageNum}-${Math.random()}`,
+            type: region.annotationType === 0 ? 'info' : 'warning',
+            description: region.content || 'Issue detected',
+            pageNumber: pageNum + 1, // Convert back to 1-based
+            anchorText: region.content?.substring(0, 120) || '',
+            coordinates: {
+              x: region.rect[0],
+              y: region.rect[1],
+              width: region.rect[2] - region.rect[0],
+              height: region.rect[3] - region.rect[1]
+            }
+          });
+        });
+      });
+      
+      formData.append('issues', JSON.stringify(allRegions));
 
-      const response = await fetch('/api/highlight-pdf', {
+      const response = await fetch('http://localhost:5174/highlight-pdf', {
         method: 'POST',
         body: formData
       });
@@ -295,28 +316,11 @@ export class PyMuPDFHighlightService implements HighlightService {
       return await response.arrayBuffer();
 
     } catch (error) {
-      // Fallback to client-side processing using pdf-lib
-      console.log('Using pdf-lib fallback for highlighting...');
-      return await this.processPDFWithPdfLib(arrayBuffer, highlightData);
+      console.error('Server highlighting failed:', error);
+      throw new Error(`Server highlighting failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  private async processPDFWithPdfLib(
-    arrayBuffer: ArrayBuffer,
-    highlightData: PyMuPDFHighlightData
-  ): Promise<ArrayBuffer> {
-    // Import pdf-lib dynamically
-    // Simplified fallback without pdf-lib dependency
-    console.warn('PDF-lib fallback: returning original buffer');
-    return arrayBuffer;
-    
-    /* Full implementation would use pdf-lib:
-    const pdfLib = await import('pdf-lib');
-    const { PDFDocument, rgb } = pdfLib;
-    const pdfDoc = await PDFDocument.load(arrayBuffer);
-    // ... rest of implementation
-    */
-  }
 
   private async processWithServerSide(
     pdfFile: File,
@@ -324,9 +328,30 @@ export class PyMuPDFHighlightService implements HighlightService {
   ): Promise<File> {
     const formData = new FormData();
     formData.append('pdf', pdfFile);
-    formData.append('highlights', JSON.stringify(highlightData));
+    
+    // Convert highlighting data to server format
+    const allRegions: any[] = [];
+    highlightData.pageHighlights.forEach((regions, pageNum) => {
+      regions.forEach(region => {
+        allRegions.push({
+          id: `region-${pageNum}-${Math.random()}`,
+          type: region.annotationType === 0 ? 'info' : 'warning',
+          description: region.content || 'Issue detected',
+          pageNumber: pageNum + 1, // Convert back to 1-based
+          anchorText: region.content?.substring(0, 120) || '',
+          coordinates: {
+            x: region.rect[0],
+            y: region.rect[1],
+            width: region.rect[2] - region.rect[0],
+            height: region.rect[3] - region.rect[1]
+          }
+        });
+      });
+    });
+    
+    formData.append('issues', JSON.stringify(allRegions));
 
-    const response = await fetch('/api/pymupdf-highlight', {
+    const response = await fetch('http://localhost:5174/highlight-pdf', {
       method: 'POST',
       body: formData
     });
