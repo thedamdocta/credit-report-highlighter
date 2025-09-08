@@ -19,14 +19,15 @@ import json
 from pathlib import Path
 import base64
 import time
+import math
 
 import fitz  # PyMuPDF
 import requests
 
 PDFS = [
-    "src/Brittney Bradwell Equifax.pdf",
-    "src/Brittney Bradwell Experian.pdf",
-    "src/Brittney Bradwell _ TransUnion Credit Report.pdf",
+    "src/sample_equifax_report.pdf",
+    "src/sample_experian_report.pdf",
+    "src/sample_transunion_report.pdf",
 ]
 
 OPENAI_API_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
@@ -86,8 +87,22 @@ def add_highlights(pdf_path, issues, out_path, dpi=300):
             c = c_raw[0] or {}
         else:
             c = c_raw or {}
-        x,y,w,h = float(c.get('x',0)), float(c.get('y',0)), float(c.get('width',0)), float(c.get('height',0))
-        if w<=0 or h<=0:
+        # Parse coordinates with NaN/inf protection
+        try:
+            x = float(c.get('x', 0))
+            y = float(c.get('y', 0))
+            w = float(c.get('width', 0))
+            h = float(c.get('height', 0))
+        except (TypeError, ValueError):
+            print(f"⚠️ Invalid coordinate values in issue: {c}")
+            continue
+        
+        # Check for NaN or infinite values
+        if not all(math.isfinite(v) for v in [x, y, w, h]):
+            print(f"⚠️ Non-finite coordinates detected: x={x}, y={y}, w={w}, h={h}")
+            continue
+        
+        if w <= 0 or h <= 0:
             continue
         rect = fitz.Rect(x*factor, y*factor, (x+w)*factor, (y+h)*factor)
         page = doc[page_idx]

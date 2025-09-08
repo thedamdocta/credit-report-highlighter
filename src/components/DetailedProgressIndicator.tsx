@@ -28,7 +28,7 @@ export interface ProgressStage {
 }
 
 interface DetailedProgressIndicatorProps {
-  stages: ProgressStage[];
+  stages?: ProgressStage[];
   currentStageId: string;
   isVisible: boolean;
   className?: string;

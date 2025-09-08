@@ -1,0 +1,24 @@
+#!/bin/sh
+
+echo "🔍 Running pre-commit model validation..."
+
+# Quick GPT-4 reference check
+echo "Checking for GPT-4 references..."
+if grep -r -i "gpt-4" src/ --exclude-dir=node_modules --exclude-dir=.git --exclude="*/config/models.ts" 2>/dev/null; then
+  echo "❌ ERROR: GPT-4 references found in source code!"
+  echo "This project requires GPT-5 models only."
+  echo "Please remove all GPT-4 references before committing."
+  exit 1
+fi
+
+# Run model validation
+echo "Running model validation..."
+npm run validate-models
+
+if [ $? -ne 0 ]; then
+  echo "❌ Model validation failed!"
+  echo "Please fix model configuration issues before committing."
+  exit 1
+fi
+
+echo "✅ Pre-commit validation passed!"

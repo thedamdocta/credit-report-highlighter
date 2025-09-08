@@ -19,7 +19,7 @@ def test_gpt5_vision_system():
     print("=" * 60)
     
     # Test configuration
-    test_pdf = "src/Brittney Bradwell Equifax.pdf"  # Use existing PDF
+    test_pdf = "src/sample_equifax_report.pdf"  # Use existing PDF
     output_dir = "test_outputs"
     frontend_url = "http://localhost:5174"
     backend_url = "http://localhost:5175"

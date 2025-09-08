@@ -22,9 +22,9 @@ def test_workflow():
     
     # Configuration
     credit_reports = [
-        "src/Brittney Bradwell Equifax.pdf",
-        "src/Brittney Bradwell _ TransUnion Credit Report.pdf", 
-        "src/Brittney Bradwell Experian.pdf"
+        "src/sample_equifax_report.pdf",
+        "src/sample_transunion_report.pdf", 
+        "src/sample_experian_report.pdf"
     ]
     
     pymupdf_server_url = "http://localhost:5174"

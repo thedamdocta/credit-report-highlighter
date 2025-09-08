@@ -86,26 +86,30 @@
       "type": "calculation_inconsistency",
       "description": "Debt-to-Credit shows 0.0% on the Total row even though the Installment row shows 116.0% and negative available, indicating utilization is not zero.",
       "severity": "high",
-      "coordinates": [
+      "bboxes": [
         {
+          "page": 1,
           "x": 1820,
           "y": 1210,
           "width": 260,
           "height": 60
         },
         {
+          "page": 1,
           "x": 1820,
           "y": 1110,
           "width": 260,
           "height": 60
         },
         {
+          "page": 1,
           "x": 1300,
           "y": 1110,
           "width": 260,
           "height": 60
         },
         {
+          "page": 1,
           "x": 1300,
           "y": 1210,
           "width": 260,
@@ -119,14 +123,16 @@
       "type": "data_mapping_anomaly",
       "description": "Installment accounts usually do not have Credit Limit or Available/Over-limit fields, but values are shown (limit $27,086; available -$4,447).",
       "severity": "medium",
-      "coordinates": [
+      "bboxes": [
         {
+          "page": 1,
           "x": 1560,
           "y": 1110,
           "width": 260,
           "height": 60
         },
         {
+          "page": 1,
           "x": 1300,
           "y": 1110,
           "width": 260,
@@ -140,8 +146,9 @@
       "type": "potential_negative_item",
       "description": "High number of inquiries reported (26), which can depress scores if they are hard pulls.",
       "severity": "medium",
-      "coordinates": [
+      "bboxes": [
         {
+          "page": 1,
           "x": 1920,
           "y": 1610,
           "width": 500,
@@ -155,8 +162,9 @@
       "type": "potential_reporting_error",
       "description": "Most Recent Inquiry is from EQUIFAX INC on the same date as the report. A self-pull should be soft and not impact scores.",
       "severity": "low",
-      "coordinates": [
+      "bboxes": [
         {
+          "page": 1,
           "x": 950,
           "y": 1680,
           "width": 1200,

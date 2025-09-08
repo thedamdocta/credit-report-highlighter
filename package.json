@@ -10,10 +10,13 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check-gpt4": "grep -r -i 'gpt-4' src/ --exclude='*/config/models.ts' && exit 1 || echo '✅ No GPT-4 references found'",
-    "validate-models": "node scripts/validate-gpt5-only.js",
-    "test-gpt5-only": "npm run validate-models",
-    "audit-gpt5": "npm run check-gpt4 && npm run validate-models"
+    "check-models": "grep -R -nI -i --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=config -E 'gpt-[^5]|gpt-4' src && echo '❌ Unauthorized models found!' && exit 1 || echo '✅ Only approved models found'",
+    "validate-models": "node --enable-source-maps scripts/validate-models.js",
+    "test-models": "yarn validate-models",
+    "audit-models": "yarn check-models && yarn validate-models",
+    "verify-config": "./verify-model-config.sh",
+    "test-gpt5-only": "npm run validate-models && npm test",
+    "prepare": "husky"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -64,6 +67,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^15.15.0",
+    "husky": "^9.1.7",
     "prettier": "3.5.3",
     "tailwindcss": "^4.0.9",
     "typescript": "~5.7.2",

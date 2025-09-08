@@ -2,6 +2,17 @@
 """
 Real GPT-5 Analysis + Highlighting Test
 Uses the actual credit analysis pipeline instead of mock data
+
+Usage:
+    Set REAL_PDFS environment variable with PDF paths:
+    - Comma-separated: REAL_PDFS="path/to/pdf1.pdf,path/to/pdf2.pdf"
+    - JSON list: REAL_PDFS='["path/to/pdf1.pdf","path/to/pdf2.pdf"]'
+    
+    Optional environment variables:
+    - PYMUPDF_SERVER_URL: Server endpoint (default: "http://localhost:5174")
+    - HTTP_TIMEOUT: Request timeout in seconds (default: "10")
+    
+    The test will be skipped if REAL_PDFS is not set (for CI environments)
 """
 
 import os
@@ -11,6 +22,7 @@ import requests
 import time
 from pathlib import Path
 import fitz  # PyMuPDF
+import pytest
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -184,14 +196,28 @@ def test_real_analysis_workflow():
     print("🚀 Starting Real GPT-5 Analysis + Highlighting Test")
     print("=" * 60)
     
-    # Configuration
-    credit_reports = [
-        "src/Brittney Bradwell Equifax.pdf",
-        # "src/Brittney Bradwell _ TransUnion Credit Report.pdf", 
-        # "src/Brittney Bradwell Experian.pdf"
-    ]
+    # Configuration - Get PDF paths from environment variable
+    real_pdfs_env = os.getenv('REAL_PDFS', '')
     
-    pymupdf_server_url = "http://localhost:5174"
+    if not real_pdfs_env:
+        pytest.skip("REAL_PDFS environment variable not set - skipping real PDF analysis test")
+    
+    # Parse comma-separated paths or JSON list
+    if real_pdfs_env.startswith('['):
+        # JSON list format
+        try:
+            credit_reports = json.loads(real_pdfs_env)
+        except json.JSONDecodeError:
+            pytest.skip(f"Invalid JSON in REAL_PDFS environment variable: {real_pdfs_env}")
+    else:
+        # Comma-separated format
+        credit_reports = [path.strip() for path in real_pdfs_env.split(',') if path.strip()]
+    
+    if not credit_reports:
+        pytest.skip("No valid PDF paths found in REAL_PDFS environment variable")
+    
+    pymupdf_server_url = os.getenv("PYMUPDF_SERVER_URL", "http://localhost:5174")
+    request_timeout = float(os.getenv("HTTP_TIMEOUT", "10"))
     output_dir = Path("real_analysis_outputs")
     output_dir.mkdir(exist_ok=True)
     
@@ -201,15 +227,22 @@ def test_real_analysis_workflow():
     
     # Check server health
     try:
-        health_response = requests.get(f"{pymupdf_server_url}/health", timeout=5)
+        health_response = requests.get(f"{pymupdf_server_url}/health", timeout=request_timeout)
         if health_response.status_code == 200:
             print("✅ PyMuPDF server is healthy")
         else:
             print(f"❌ Server health check failed: {health_response.status_code}")
             return
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Cannot connect to PyMuPDF server at {pymupdf_server_url}")
+        print("Please ensure the server is running: python app.py")
+        sys.exit(1)
+    except requests.exceptions.Timeout:
+        print(f"❌ Request to {pymupdf_server_url} timed out after {request_timeout} seconds")
+        sys.exit(1)
     except requests.RequestException as e:
-        print(f"❌ Cannot connect to PyMuPDF server: {e}")
-        return
+        print(f"❌ Error connecting to PyMuPDF server: {e}")
+        sys.exit(1)
     
     # Process each report
     for i, report_path in enumerate(credit_reports, 1):
@@ -252,18 +285,19 @@ def test_real_analysis_workflow():
                     'coordinates': issue.get('coordinates', {})
                 })
             
-            with open(report_path, 'rb') as pdf_file:
-                files = {'pdf': (Path(report_path).name, pdf_file, 'application/pdf')}
-                data = {'issues': json.dumps(server_issues)}
+            try:
+                with open(report_path, 'rb') as pdf_file:
+                    files = {'pdf': (Path(report_path).name, pdf_file, 'application/pdf')}
+                    data = {'issues': json.dumps(server_issues)}
+                    
+                    response = requests.post(
+                        f"{pymupdf_server_url}/highlight-pdf",
+                        files=files,
+                        data=data,
+                        timeout=request_timeout
+                    )
+                    response.raise_for_status()
                 
-                response = requests.post(
-                    f"{pymupdf_server_url}/highlight-pdf",
-                    files=files,
-                    data=data,
-                    timeout=30
-                )
-            
-            if response.status_code == 200:
                 # Save highlighted PDF
                 output_filename = f"real_analysis_{Path(report_path).stem}.pdf"
                 output_path = output_dir / output_filename
@@ -282,9 +316,20 @@ def test_real_analysis_workflow():
                     src_file.write(response.content)
                 print(f"📋 Copy saved to: {src_copy}")
                 
-            else:
-                print(f"❌ Highlighting failed: {response.status_code}")
-                print(f"Error: {response.text}")
+            except requests.exceptions.ConnectionError:
+                print(f"❌ Cannot connect to PyMuPDF server at {pymupdf_server_url}")
+                print("Please ensure the server is running: python app.py")
+                continue
+            except requests.exceptions.Timeout:
+                print(f"❌ Request to {pymupdf_server_url}/highlight-pdf timed out after {request_timeout} seconds")
+                continue
+            except requests.exceptions.HTTPError as e:
+                print(f"❌ Highlighting failed with HTTP error: {e}")
+                print(f"Response: {response.text if 'response' in locals() else 'No response'}")
+                continue
+            except requests.RequestException as e:
+                print(f"❌ Error during highlighting request: {e}")
+                continue
                 
         except Exception as e:
             print(f"❌ Error processing {report_path}: {e}")

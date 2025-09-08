@@ -4,19 +4,17 @@
 
 **This application MUST ONLY use GPT-5 models. NO GPT-4 models are allowed.**
 
-## Approved Models Only
+## Model Policy
 
 ### ✅ ALLOWED MODELS:
-- `gpt-5` - Main text analysis model (has built-in vision capabilities)
-- `gpt-5-mini` - Lightweight tasks (if needed)
-- `gpt-5-turbo` - Fast processing (if available)
+**See `src/config/models.ts` for the authoritative list of approved GPT-5 models**
+- Do not hardcode model IDs in documentation
+- Model capabilities are defined in the config file
+- All models must be from the GPT-5 family
 
 ### ❌ FORBIDDEN MODELS:
-- `gpt-4` - NEVER USE
-- `gpt-4o` - NEVER USE  
-- `gpt-4-turbo` - NEVER USE
-- `gpt-4-vision-preview` - NEVER USE
 - Any model containing "gpt-4" - NEVER USE
+- Any model not listed in `src/config/models.ts` - NEVER USE
 
 ## Implementation Guidelines
 
@@ -25,6 +23,12 @@
 2. **Use constants** from `src/config/models.ts` instead of hardcoding
 3. **Run validation script** before deploying: `npm run validate-models`
 4. **Review all API calls** to ensure GPT-5 usage
+
+### Automated Enforcement:
+- **CI/CD Pipeline**: GitHub Actions workflow automatically validates models on every push and PR
+- **Pre-commit Hooks**: Local validation runs before every commit (via Husky)
+- **Build Gate**: CI will fail if any GPT-4 references are detected
+- **Mandatory Checks**: All PRs must pass model validation before merging
 
 ### For AI Assistants:
 When modifying this codebase:
@@ -36,14 +40,17 @@ When modifying this codebase:
 ## Validation Commands
 
 ```bash
-# Check for any GPT-4 references
-npm run check-gpt4
+# Check for any non-GPT-5 model references
+npm run check-non-gpt5
 
 # Validate all model configurations
 npm run validate-models
 
 # Test with GPT-5 only
 npm run test-gpt5-only
+
+# Run full GPT-5 audit
+npm run audit-gpt5
 ```
 
 ## Model Configuration Files

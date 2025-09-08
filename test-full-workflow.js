@@ -1,10 +1,10 @@
-// Complete Workflow Test for GPT-5 Vision System
+// Complete Workflow Test for Vision-Enhanced Analysis System
 // This test simulates a real user uploading a PDF and going through the complete analysis
 
 import { readFileSync } from 'fs';
 
 async function testCompleteWorkflow() {
-    console.log('🚀 Starting Complete GPT-5 Vision Workflow Test...');
+    console.log('🚀 Starting Complete Vision-Enhanced Workflow Test...');
     console.log('📍 Testing at: http://localhost:5174');
     
     try {
@@ -59,9 +59,9 @@ async function testCompleteWorkflow() {
             throw new Error('Image conversion failed');
         }
         
-        // Step 4: Test GPT-5 Vision Analysis (Simulate)
-        console.log('\n4️⃣ Testing GPT-5 Vision Analysis Pipeline...');
-        console.log('🧠 GPT-5 Vision capabilities verified:');
+        // Step 4: Test Vision Analysis (Simulate)
+        console.log('\n4️⃣ Testing Vision Analysis Pipeline...');
+        console.log('🧠 Vision analysis capabilities verified:');
         console.log('  • High-quality image extraction ✅');
         console.log('  • Smart chunking system ready ✅');
         console.log('  • Empty cell detection enabled ✅');
@@ -70,7 +70,7 @@ async function testCompleteWorkflow() {
         // Step 5: Test Analysis Types
         console.log('\n5️⃣ Testing Analysis Capabilities...');
         const analysisTypes = [
-            'Full Analysis (GPT-5) - Vision + Text',
+            'Full Analysis - Vision + Text',
             'Deep Analysis - Enhanced Processing',
             'FCRA Violations - Legal Compliance',
             'Collections Check - Account Validation', 
@@ -120,7 +120,7 @@ async function testCompleteWorkflow() {
         console.log('✅ Frontend Application: Running');
         console.log('✅ Backend PyMuPDF Server: Healthy');
         console.log('✅ PDF Image Conversion: Working');
-        console.log('✅ GPT-5 Vision Pipeline: Ready');
+        console.log('✅ Vision Analysis Pipeline: Ready');
         console.log('✅ Analysis Types: All Available');
         console.log('✅ Error Handling: Robust');
         console.log('✅ Performance: Optimal');
@@ -144,7 +144,7 @@ async function testCompleteWorkflow() {
 // Run the complete workflow test
 testCompleteWorkflow().then(success => {
     if (success) {
-        console.log('\n✨ GPT-5 Vision System: FULLY TESTED & OPERATIONAL');
+        console.log('\n✨ Vision-Enhanced Analysis System: FULLY TESTED & OPERATIONAL');
     }
     process.exit(success ? 0 : 1);
 }).catch(error => {

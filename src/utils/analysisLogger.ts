@@ -107,7 +107,7 @@ class AnalysisLogger {
       file: fileName,
       timestamp,
       summary: `Found ${analysisResult.totalIssues} issues across ${detailedFindings.pagesAnalyzed.length} pages`,
-      confidence: `${(analysisResult.confidence * 100).toFixed(1)}%`,
+      confidence: `${(Number.isFinite(analysisResult.confidence) ? analysisResult.confidence * 100 : 0).toFixed(1)}%`,
       breakdown: detailedFindings.issuesByType
     });
 

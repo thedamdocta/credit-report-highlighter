@@ -21,9 +21,9 @@ import base64
 import requests
 
 PDFS = [
-    "src/Brittney Bradwell Equifax.pdf",
-    "src/Brittney Bradwell Experian.pdf",
-    "src/Brittney Bradwell _ TransUnion Credit Report.pdf",
+    "src/sample_equifax_report.pdf",
+    "src/sample_experian_report.pdf",
+    "src/sample_transunion_report.pdf",
 ]
 
 BACKEND_URL = os.environ.get("PYMUPDF_SERVER_URL", "http://localhost:5175")
@@ -128,7 +128,15 @@ def highlight(pdf_path: str, issues: list, out_pdf_path: str):
 
 def _rect_from_issue(i):
     c = i.get('coordinates', {})
-    return (float(c.get('x', 0.0)), float(c.get('y', 0.0)), float(c.get('width', 0.0)), float(c.get('height', 0.0)))
+    try:
+        x = float(c.get('x', 0.0))
+        y = float(c.get('y', 0.0))
+        width = float(c.get('width', 0.0))
+        height = float(c.get('height', 0.0))
+        return (x, y, width, height)
+    except (TypeError, ValueError) as e:
+        print(f"⚠️ Invalid coordinates in issue: {c}")
+        return (0.0, 0.0, 0.0, 0.0)
 
 def verify_alignment(out_pdf_path: str, issues: list) -> dict:
     """Verify each issue has a corresponding highlight rectangle on the correct page.

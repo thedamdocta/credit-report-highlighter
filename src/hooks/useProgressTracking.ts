@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileText, Brain, Search, Target, Highlighter, PenTool, CheckCircle } from 'lucide-react';
 import type { ProgressStage } from '../components/DetailedProgressIndicator';
 
@@ -19,7 +19,15 @@ export function useProgressTracking(): ProgressManager {
   const [currentStageId, setCurrentStageId] = useState<string>('');
   const [isVisible, setIsVisible] = useState(false);
   const [stages, setStages] = useState<ProgressStage[]>([]);
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const timeoutsRef = useRef<number[]>([]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
+  }, []);
 
   const defaultStages: ProgressStage[] = [
     {
@@ -133,6 +141,10 @@ export function useProgressTracking(): ProgressManager {
   const nextStage = useCallback((stageId: string, substage?: string) => {
     console.log(`📊 Progress: Moving to stage ${stageId}${substage ? ` (${substage})` : ''}`);
     
+    // Clear any existing timeouts before starting new ones
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+    
     setStages(prevStages => 
       prevStages.map(stage => ({
         ...stage,
@@ -160,7 +172,7 @@ export function useProgressTracking(): ProgressManager {
             currentSubstage: stage.id === stageId ? substage : stage.currentSubstage
           }))
         );
-      }, index * 2000); // 2 seconds per substage
+      }, index * 2000) as unknown as number; // 2 seconds per substage
       
       timeoutsRef.current.push(timeout);
     });

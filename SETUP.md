@@ -46,17 +46,23 @@ cd creditpdfhighlighter
 npm run dev
 ```
 
-The app will open at `http://localhost:5174` (or 5173 if available)
+The app will open at `http://localhost:5173` (or 5174 if 5173 is unavailable)
 
 ## Configuration
 
 ### OpenAI API Key (Required for GPT-5)
 
-Create a `.env.local` file in the project root:
+**Never store your OpenAI API key in a VITE_ env var or expose it to the frontend.**
+
+Create a `.env` file in your backend/server directory (do not commit this file):
 
 ```bash
-VITE_OPENAI_API_KEY=sk-your-actual-api-key-here
+OPENAI_API_KEY=sk-your-actual-api-key-here
 ```
+
+Configure your Flask server to read `OPENAI_API_KEY` from the environment. All OpenAI API calls must be proxied through backend endpoints—**never call OpenAI directly from the browser**.
+
+**Reminder:** Always specify the exact model name (e.g., `gpt-5-vision-preview`) in your backend requests to avoid model drift or unexpected changes.
 
 ### Custom PyMuPDF Server URL (Optional)
 
@@ -156,18 +162,18 @@ python3 -m pip install --upgrade flask flask-cors pymupdf
 
 ## System Architecture
 
-- **Frontend (Vite/React)**: UI and PDF viewing
-- **PyMuPDF Server (Python)**: PDF highlighting and image conversion
-- **GPT-5 Vision API**: Document analysis and issue detection
+**Frontend (Vite/React)**: UI and PDF viewing
+**PyMuPDF Server (Python)**: PDF highlighting and image conversion
+**Flask Backend**: Proxies all OpenAI API calls and document analysis
 
 The system uses:
 - PDF.js for browser-based PDF viewing
 - PyMuPDF for server-side PDF annotation
-- GPT-5 with built-in vision for analysis
+- GPT-5 (via backend proxy) with built-in vision for analysis
 
 ## Notes
 
 - All highlights are **yellow** for consistency
 - The system requires **both servers** running
-- Analysis uses GPT-5 (not GPT-4)
+- Analysis uses GPT-5 (not GPT-4)—always pin the model name in backend requests
 - Coordinates are converted from image pixels to PDF points automatically

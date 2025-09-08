@@ -17,13 +17,6 @@ app = Flask(__name__)
 # Explicit, permissive CORS for local dev (frontend at 5173)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers.setdefault('Access-Control-Allow-Origin', '*')
-    response.headers.setdefault('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    return response
-
 class PreciseHighlighter:
     """High-precision PDF highlighting using PyMuPDF"""
     

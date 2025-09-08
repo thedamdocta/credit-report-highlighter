@@ -37,6 +37,10 @@ export interface AnalysisResult {
     chunkingUsed?: boolean;
     fullDocumentAnalysis?: boolean;
     chunksAnalyzed?: number;
+    coordinateExtractionStatus?: 'success' | 'failed' | 'not_attempted';
+    coordinatePrecision?: 'high' | 'degraded' | 'text_only';
+    highlightingCapability?: 'full' | 'partial' | 'limited';
+    fallbackStrategy?: string;
   };
 }
 

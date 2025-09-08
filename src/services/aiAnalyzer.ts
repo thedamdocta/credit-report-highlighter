@@ -50,26 +50,119 @@ export class CreditAnalyzer {
     progressCallback?: (progress: ProcessingProgress) => void,
     pdfFile?: File
   ): Promise<AnalysisResult> {
+    const startTime = Date.now();
+    
     try {
-      // Use GPT-5 Vision Analyzer for comprehensive analysis with empty cell detection
-      console.log('🎯 Using GPT-5 Vision Analyzer with smart chunking and empty cell detection');
-      
-      const progressWrapper = (message: string) => {
-        if (progressCallback) {
-          progressCallback({
-            status: 'processing',
-            progress: 50,
-            message,
-            result: null
-          });
-        }
+      // Create a dynamic progress wrapper that properly forwards progress state
+      const createProgressWrapper = (baseProgress: number = 0, stage: ProcessingProgress['stage'] = 'analysis') => {
+        return (progressData: string | Partial<ProcessingProgress>) => {
+          if (progressCallback) {
+            const timeElapsed = Date.now() - startTime;
+            // Handle both string messages and full progress objects
+            if (typeof progressData === 'string') {
+              progressCallback({
+                stage,
+                progress: baseProgress,
+                message: progressData,
+                timeElapsed
+              });
+            } else {
+              // Forward the full progress state with defaults
+              progressCallback({
+                stage: progressData.stage || stage,
+                progress: progressData.progress || baseProgress,
+                message: progressData.message || '',
+                timeElapsed: progressData.timeElapsed || timeElapsed,
+                percentage: progressData.percentage,
+                currentPage: progressData.currentPage,
+                currentChunk: progressData.currentChunk,
+                totalChunks: progressData.totalChunks,
+                estimatedTimeRemaining: progressData.estimatedTimeRemaining
+              });
+            }
+          }
+        };
       };
+
+      // Determine which analyzer to use based on configuration and capabilities
+      // Priority: 1. GPT-5 Vision (if PDF file provided), 2. Enhanced with Late Chunking, 3. Standard
       
-      return await this.gpt5VisionAnalyzer.analyzeWithVision(pdfDocument, pdfFile, progressWrapper);
+      if (pdfFile && this.shouldUseVisionAnalyzer(analysisType, pdfDocument)) {
+        console.log('🎯 Using GPT-5 Vision Analyzer with smart chunking and empty cell detection');
+        const progressWrapper = createProgressWrapper(50, 'analysis');
+        return await this.gpt5VisionAnalyzer.analyzeWithVision(pdfDocument, pdfFile, progressWrapper);
+      }
+      
+      // Use Enhanced Credit Analyzer with Late Chunking for comprehensive analysis
+      if (useLateChunking || analysisType === 'late_chunking') {
+        console.log('🧠 Using Enhanced Credit Analyzer with Late Chunking methodology');
+        progressCallback?.({
+          stage: 'chunking',
+          progress: 20,
+          message: 'Initializing Late Chunking analysis...',
+          timeElapsed: Date.now() - startTime
+        });
+        
+        const result = await this.enhancedCreditAnalyzer.analyzeWithLateChunking(
+          pdfDocument,
+          pdfFile
+        );
+        
+        progressCallback?.({
+          stage: 'complete',
+          progress: 100,
+          message: 'Analysis complete',
+          timeElapsed: Date.now() - startTime
+        });
+        
+        return result;
+      }
+      
+      // Fallback to standard analysis if no special requirements
+      console.log('📊 Using standard credit analysis');
+      progressCallback?.({
+        stage: 'analysis',
+        progress: 30,
+        message: 'Performing standard analysis...',
+        timeElapsed: Date.now() - startTime
+      });
+      
+      const fullText = this.extractFullText(pdfDocument);
+      const prompt = this.createAnalysisPrompt(analysisType, fullText, customPrompt);
+      const response = await this.callOpenAI(prompt);
+      const result = this.parseAnalysisResponse(response, pdfDocument.pages.length);
+      
+      progressCallback?.({
+        stage: 'complete',
+        progress: 100,
+        message: 'Analysis complete',
+        timeElapsed: Date.now() - startTime
+      });
+      
+      return result;
     } catch (error) {
       console.error('AI Analysis Error:', error);
-      throw new Error('Failed to analyze credit report');
+      progressCallback?.({
+        stage: 'complete',
+        progress: 0,
+        message: `Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timeElapsed: Date.now() - startTime
+      });
+      throw new Error(`Failed to analyze credit report: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  private shouldUseVisionAnalyzer(analysisType: AnalysisType, pdfDocument: PDFDocument): boolean {
+    // Use vision analyzer for complex documents or when explicitly needed
+    // Check for indicators like tables, complex layouts, or specific analysis types
+    const complexAnalysisTypes = ['full', 'comprehensive', 'vision'];
+    const hasComplexLayout = pdfDocument.pages.some(page => 
+      page.text.includes('│') || // Table indicators
+      page.text.includes('─') ||
+      /\s{5,}/.test(page.text) // Multiple spaces indicating columns
+    );
+    
+    return complexAnalysisTypes.includes(analysisType) || hasComplexLayout;
   }
 
   private extractFullText(pdfDocument: PDFDocument): string {

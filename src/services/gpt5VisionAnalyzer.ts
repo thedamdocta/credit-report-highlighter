@@ -4,12 +4,26 @@
 import { API_CONFIG } from '../config/api';
 import { getOpenAIKey } from '../settings/openai';
 import { globalCostTracker, CostTracker } from './costTracker';
+import { serverHealthMonitor } from '../utils/serverHealthCheck';
 import type {
   AnalysisResult,
   CreditIssue,
   PDFDocument,
   OpenAIResponse,
 } from '../types/creditReport';
+
+// OpenAI Message Types
+interface ChatCompletionMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string | Array<{
+    type: 'text' | 'image_url';
+    text?: string;
+    image_url?: {
+      url: string;
+      detail?: 'low' | 'high' | 'auto';
+    };
+  }>;
+}
 
 export interface VisionAnalysisChunk {
   chunkIndex: number;
@@ -38,7 +52,6 @@ export interface VisionAnalysisResult {
   costBreakdown: {
     inputTokens: number;
     outputTokens: number;
-    imageTokens: number;
     totalCost: number;
   };
 }
@@ -72,7 +85,19 @@ export class GPT5VisionAnalyzer {
       progressCallback?.('Extracting images from PDF...');
       
       // Step 1: Convert PDF to images
-      const images = await this.extractPDFImages(pdfFile!);
+      let images: Array<{
+        pageNumber: number;
+        imageData: string;
+        mimeType: string;
+        width?: number;
+        height?: number;
+        dpi?: number;
+      }> = [];
+      if (pdfFile) {
+        images = await this.extractPDFImages(pdfFile);
+      } else {
+        console.warn('No PDF file provided for image extraction, proceeding with text-only analysis');
+      }
       
       progressCallback?.('Creating dynamic chunks...');
       
@@ -109,7 +134,13 @@ export class GPT5VisionAnalyzer {
       
     } catch (error) {
       console.error('❌ GPT-5 Vision Analysis Error:', error);
-      throw new Error(`Failed to analyze credit report: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      const newError = new Error(`Failed to analyze credit report: ${message}`);
+      if (stack) {
+        newError.stack = `${newError.stack}\nCaused by:\n${stack}`;
+      }
+      throw newError;
     }
   }
 
@@ -125,6 +156,8 @@ export class GPT5VisionAnalyzer {
     dpi?: number;
   }>> {
     try {
+      // Preflight health check before attempting conversion
+      await serverHealthMonitor.ensureServerAvailable();
       const formData = new FormData();
       formData.append('pdf', pdfFile);
       formData.append('dpi', '300'); // High DPI for vision analysis
@@ -142,7 +175,33 @@ export class GPT5VisionAnalyzer {
       }
       
       const data = await response.json();
-      const images = (data.images || []) as Array<{pageNumber:number; imageData:string; mimeType:string; width?:number; height?:number; dpi?:number}>;
+      
+      // Runtime validation for data.images
+      if (!data || !Array.isArray(data.images)) {
+        console.error('Invalid response: missing or non-array images field', data);
+        return [];
+      }
+      
+      // Validate and filter images to ensure correct shape
+      const images = data.images.filter((img: any) => {
+        const isValid = img && 
+          typeof img.pageNumber === 'number' &&
+          typeof img.imageData === 'string' &&
+          typeof img.mimeType === 'string';
+        
+        if (!isValid) {
+          console.warn('Skipping invalid image entry:', img);
+        }
+        
+        return isValid;
+      }).map((img: any) => ({
+        pageNumber: img.pageNumber,
+        imageData: img.imageData,
+        mimeType: img.mimeType,
+        width: typeof img.width === 'number' ? img.width : undefined,
+        height: typeof img.height === 'number' ? img.height : undefined,
+        dpi: typeof img.dpi === 'number' ? img.dpi : undefined
+      }));
 
       // Cache per-page image info for coordinate conversion
       this.pageImageInfo.clear();
@@ -160,10 +219,27 @@ export class GPT5VisionAnalyzer {
       
     } catch (error) {
       console.error('❌ PDF image extraction failed:', error);
-      const hint = `PyMuPDF server unreachable or blocked by CORS at ${API_CONFIG.PYMUPDF_SERVER_URL}.` +
-        ` Ensure it is running (python pymupdf_highlight_server.py) and accessible from http://localhost:5173.`;
-      // Strict mode: do not proceed without images
-      throw new Error(hint);
+      
+      // Provide specific error based on the failure type
+      let errorMessage = 'Failed to convert PDF to images: ';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('PyMuPDF server is not available')) {
+          errorMessage = error.message; // Use the preflight check error
+        } else if (error.message.includes('fetch')) {
+          errorMessage += `Network error - PyMuPDF server at ${API_CONFIG.PYMUPDF_SERVER_URL} is not reachable. `;
+          errorMessage += `Please run: python3 pymupdf_highlight_server.py`;
+        } else if (error.message.includes('CORS')) {
+          errorMessage += `CORS blocked - PyMuPDF server needs proper CORS headers. `;
+          errorMessage += `Ensure Flask server has flask-cors installed and configured.`;
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += `PyMuPDF server error at ${API_CONFIG.PYMUPDF_SERVER_URL}`;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
@@ -262,22 +338,22 @@ export class GPT5VisionAnalyzer {
   ): Promise<VisionAnalysisResult> {
     // Interleave page labels with images to help the model attribute coordinates to correct pages
     const labeledImageContents = chunk.images.flatMap(img => {
-      const w = (img as any).width || 'unknown';
-      const h = (img as any).height || 'unknown';
-      const dpi = (img as any).dpi || 300;
-      return ([
-        { type: 'text', text: `The next image is page ${img.pageNumber}, ${w}x${h} pixels at ${dpi} DPI. Measure coordinates in PIXELS from the top-left corner.` },
+      const w = img.width || 'unknown';
+      const h = img.height || 'unknown';
+      const dpi = img.dpi || 300;
+      return [
+        { type: 'text' as const, text: `The next image is page ${img.pageNumber}, ${w}x${h} pixels at ${dpi} DPI. Measure coordinates in PIXELS from the top-left corner.` },
         {
-          type: 'image_url',
+          type: 'image_url' as const,
           image_url: {
             url: `data:${img.mimeType};base64,${img.imageData}`,
-            detail: 'high'
+            detail: 'high' as const
           }
         }
-      ]);
+      ];
     });
 
-    const messages = [
+    const messages: ChatCompletionMessage[] = [
       {
         role: 'system',
         content: `You are an expert credit report analyst with advanced vision capabilities. 
@@ -300,7 +376,7 @@ Always respond with valid JSON only.`
           ...labeledImageContents
         ]
       }
-    ] as any[];
+    ];
 
     try {
       const response = await this.callGPT5Vision(messages);
@@ -406,7 +482,7 @@ ONLY return the JSON. No other text.`;
   /**
    * Call GPT-5 Vision API
    */
-  private async callGPT5Vision(messages: any[]): Promise<string> {
+  private async callGPT5Vision(messages: ChatCompletionMessage[]): Promise<string> {
     const request = {
       model: 'gpt-5',
       messages,
@@ -467,7 +543,7 @@ ONLY return the JSON. No other text.`;
       issues,
       emptyPaymentCells,
       contextSummary: typeof parsed.contextSummary === 'string' ? parsed.contextSummary : '',
-      costBreakdown: { inputTokens: 0, outputTokens: 0, imageTokens: 0, totalCost: 0 }
+      costBreakdown: { inputTokens: 0, outputTokens: 0, totalCost: 0 }
     };
   }
 
@@ -484,7 +560,7 @@ ONLY return the JSON. No other text.`;
     // Add empty payment cell issues as credit issues
     const emptyPaymentIssues: CreditIssue[] = chunkResults.flatMap(result =>
       result.emptyPaymentCells.map(cell => ({
-        id: `empty-payment-${cell.pageNumber}-${Date.now()}-${Math.random()}`,
+        id: `empty-payment-${crypto.randomUUID()}`,
         type: 'warning' as const,
         category: 'accuracy' as const,
         description: `Missing payment data: ${cell.description}`,

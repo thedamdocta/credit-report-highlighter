@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * GPT-5 Only Validation Script
+ * Model Validation Script
  * 
- * This script validates that the entire codebase uses only GPT-5 models
- * and prevents any accidental use of GPT-4 models.
+ * This script validates that the entire codebase uses only approved models
+ * as defined in the central configuration.
  */
 
 import fs from 'fs';
@@ -14,8 +14,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('🔍 GPT-5 Only Validation Script');
-console.log('=' .repeat(50));
+console.log('🔍 Model Validation Script');
+console.log('='.repeat(50));
 
 let violations = [];
 let warnings = [];
@@ -32,18 +32,19 @@ const filesToCheck = [
   'src/services/enhancedAiAnalyzer.ts'
 ];
 
-// Check for GPT-4 references (excluding enforcement files)
-console.log('1️⃣ Checking for GPT-4 references...');
+// Check for unauthorized model references (excluding enforcement files)
+console.log('1️⃣ Checking for unauthorized model references...');
 try {
-  const grepResult = execSync('grep -r -i "gpt-4" src/ --exclude="*/config/models.ts" || true', { encoding: 'utf8' });
+  // Look for any gpt- references that aren't gpt-5
+  const grepResult = execSync('grep -r -i -E "gpt-[^5]|gpt-4" src/ --exclude="*/config/models.ts" || true', { encoding: 'utf8' });
   if (grepResult.trim()) {
-    violations.push('GPT-4 references found in codebase:');
+    violations.push('Unauthorized model references found in codebase:');
     violations.push(grepResult);
   } else {
-    console.log('✅ No GPT-4 references found');
+    console.log('✅ Only approved models found');
   }
 } catch (error) {
-  console.log('✅ No GPT-4 references found');
+  console.log('✅ Only approved models found');
 }
 
 // Check model configurations
@@ -58,12 +59,10 @@ filesToCheck.forEach(file => {
     if (modelMatches) {
       modelMatches.forEach(match => {
         const model = match.match(/['"](.*?)['"]/)[1];
-        if (model.includes('gpt-4')) {
-          violations.push(`❌ CRITICAL: ${file} contains GPT-4 model: ${model}`);
-        } else if (model.includes('gpt-5')) {
-          console.log(`✅ ${file}: ${model}`);
+        if (!model.includes('gpt-5')) {
+          violations.push(`❌ CRITICAL: ${file} contains unauthorized model: ${model}`);
         } else {
-          warnings.push(`⚠️ ${file}: Unrecognized model: ${model}`);
+          console.log(`✅ ${file}: ${model}`);
         }
       });
     }
@@ -83,8 +82,8 @@ if (fs.existsSync(packagePath)) {
   if (!packageJson.scripts) packageJson.scripts = {};
   
   const requiredScripts = {
-    'check-gpt4': 'grep -r -i "gpt-4" src/ && exit 1 || echo "✅ No GPT-4 references found"',
-    'validate-models': 'node scripts/validate-gpt5-only.js',
+    'check-models': 'grep -r -i -E "gpt-[^5]|gpt-4" src/ && exit 1 || echo "✅ Only approved models found"',
+    'validate-models': 'node scripts/validate-models.js',
     'test-gpt5-only': 'npm run validate-models && npm test'
   };
   
@@ -105,7 +104,7 @@ if (fs.existsSync(packagePath)) {
 
 // Generate report
 console.log('4️⃣ Generating validation report...');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 
 if (violations.length > 0) {
   console.log('❌ VALIDATION FAILED');
@@ -120,11 +119,11 @@ if (warnings.length > 0) {
 }
 
 console.log('✅ VALIDATION PASSED');
-console.log('🎉 All model configurations are GPT-5 compliant');
+console.log('🎉 All model configurations are compliant');
 console.log('');
 console.log('Available validation commands:');
-console.log('- npm run check-gpt4');
+console.log('- npm run check-models');
 console.log('- npm run validate-models'); 
-console.log('- npm run test-gpt5-only');
+console.log('- npm run test-models');
 
 process.exit(0);

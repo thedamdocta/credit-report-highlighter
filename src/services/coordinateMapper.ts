@@ -174,85 +174,41 @@ export class CoordinateMapper {
 
   private findTextMatches(searchText: string, pageTokens: TextToken[]): { tokens: TextToken[]; confidence: number }[] {
     const matches: { tokens: TextToken[]; confidence: number }[] = [];
-    const searchWords = searchText.split(/\s+/).filter(word => word.length > 2);
     
-    if (searchWords.length === 0) return matches;
+    // Normalize text for exact matching (case/punctuation-insensitive)
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+    
+    const target = normalize(searchText);
+    if (!target) return matches;
+    
+    const targetWords = target.split(' ');
 
-    for (let i = 0; i <= pageTokens.length - searchWords.length; i++) {
-      const window = pageTokens.slice(i, i + searchWords.length * 3);
-      const windowText = window.map(t => t.str).join(' ').toLowerCase();
+    // Search for exact contiguous matches only
+    for (let i = 0; i <= pageTokens.length - targetWords.length; i++) {
+      const windowTokens = pageTokens.slice(i, i + targetWords.length);
+      const windowText = normalize(windowTokens.map(t => t.str).join(' '));
       
-      const similarity = this.calculateTextSimilarity(searchText, windowText.substring(0, searchText.length * 2));
-      
-      if (similarity > 0.7) {
-        const matchingTokens = this.extractMatchingTokens(searchWords, window);
-        
-        if (matchingTokens.length > 0) {
-          matches.push({
-            tokens: matchingTokens,
-            confidence: similarity
-          });
-        }
+      // Require exact match (after normalization)
+      if (windowText === target) {
+        matches.push({ 
+          tokens: windowTokens, 
+          confidence: 1.0  // Always 100% confidence for exact matches
+        });
       }
     }
-
+    
     return matches;
   }
 
-  private extractMatchingTokens(searchWords: string[], windowTokens: TextToken[]): TextToken[] {
-    const matchingTokens: TextToken[] = [];
-    const usedIndices = new Set<number>();
-    
-    searchWords.forEach(searchWord => {
-      let bestMatch = { index: -1, similarity: 0 };
-      
-      windowTokens.forEach((token, index) => {
-        if (usedIndices.has(index)) return;
-        
-        const similarity = this.calculateTextSimilarity(searchWord, token.str.toLowerCase());
-        if (similarity > bestMatch.similarity && similarity > 0.6) {
-          bestMatch = { index, similarity };
-        }
-      });
-      
-      if (bestMatch.index >= 0) {
-        matchingTokens.push(windowTokens[bestMatch.index]);
-        usedIndices.add(bestMatch.index);
-      }
-    });
+  // DEPRECATED: extractMatchingTokens removed - using exact contiguous matching only
+  // The fuzzy matching approach has been replaced with exact phrase matching 
+  // to ensure coordinate precision and prevent approximations
 
-    return matchingTokens;
-  }
-
-  private calculateTextSimilarity(text1: string, text2: string): number {
-    const longer = text1.length > text2.length ? text1 : text2;
-    const shorter = text1.length > text2.length ? text2 : text1;
-    
-    if (longer.length === 0) return 1.0;
-    
-    const editDistance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  }
-
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-    
-    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-    
-    for (let j = 1; j <= str2.length; j++) {
-      for (let i = 1; i <= str1.length; i++) {
-        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,
-          matrix[j - 1][i] + 1,
-          matrix[j - 1][i - 1] + cost
-        );
-      }
-    }
-    
-    return matrix[str2.length][str1.length];
-  }
+  // DEPRECATED: calculateTextSimilarity and levenshteinDistance removed
+  // These fuzzy matching methods have been replaced with exact phrase matching
+  // to ensure coordinate precision and prevent approximations.
+  // The application now requires exact contiguous matches only.
 
   private createTooltip(issue: EnhancedIssue): string {
     let tooltip = `${issue.description}`;

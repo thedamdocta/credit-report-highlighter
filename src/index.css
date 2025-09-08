@@ -14,13 +14,14 @@ body {
   min-height: 100vh;
   box-sizing: border-box;
   overflow: auto;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
   --animate-glow-slow: glow 2.5s ease-in-out infinite;
   --animate-bounce-drop: bounceDrop 0.8s ease;
   --color-sidebar-ring: var(--sidebar-ring);

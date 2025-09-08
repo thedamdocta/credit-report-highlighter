@@ -1,0 +1,74 @@
+name: Model Validation
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  validate-models:
+    name: Validate Approved Models Only
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install jq for JSON parsing
+        run: sudo apt-get update && sudo apt-get install -y jq
+          
+      - name: Check for GPT-4 references (fail-fast)
+        run: |
+          echo "🔍 Scanning for GPT-4 references..."
+          if grep -r -i "gpt-4" src/ --exclude-dir=node_modules --exclude-dir=.git --exclude="*/config/models.ts" 2>/dev/null; then
+            echo "❌ CRITICAL: GPT-4 references found in source code!"
+            echo "This project requires GPT-5 models only."
+            exit 1
+          else
+            echo "✅ No GPT-4 references found"
+          fi
+          
+      - name: Check for non-GPT-5 model patterns
+        run: |
+          echo "🔍 Checking for unauthorized model patterns..."
+          if grep -r -E "gpt-[^5]" src/ --exclude-dir=node_modules --exclude-dir=.git --exclude="*/config/models.ts" 2>/dev/null; then
+            echo "❌ CRITICAL: Non-GPT-5 model references found!"
+            echo "Only GPT-5 family models are allowed."
+            exit 1
+          else
+            echo "✅ Only GPT-5 patterns found"
+          fi
+          
+      - name: Verify models config exists
+        run: |
+          if [ ! -f "src/config/models.ts" ]; then
+            echo "❌ src/config/models.ts not found!"
+            exit 1
+          else
+            echo "✅ Models config file exists"
+          fi
+          
+      - name: Install dependencies
+        run: |
+          if [ -f "yarn.lock" ]; then
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+          
+      - name: Run model validation script
+        run: npm run validate-models
+        
+      - name: Run full audit
+        run: npm run audit-models
+        
+      - name: Final validation check
+        run: |
+          echo "✅ All model validations passed!"
+          echo "This codebase uses only approved GPT-5 models."

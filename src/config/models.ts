@@ -26,20 +26,26 @@ export function validateModel(model: string): boolean {
   return approvedModels.includes(model as any);
 }
 
-// Enforce GPT-5 only
-export function enforceGPT5Only(model: string): string {
-  if (model.includes('gpt-4')) {
-    console.error('❌ CRITICAL ERROR: GPT-4 model detected and BLOCKED:', model);
-    throw new Error(`GPT-4 models are FORBIDDEN. Attempted model: ${model}. Use GPT-5 only.`);
+// Enforce exact approved models only (no wildcards or ambiguous names)
+export function enforceApprovedModelsOnly(model: string): string {
+  // Check against exact allowlist - no wildcards or partial matches
+  if (!validateModel(model)) {
+    console.error('❌ CRITICAL ERROR: Unauthorized model detected and BLOCKED:', model);
+    const approvedList = Object.values(APPROVED_MODELS).join(', ');
+    throw new Error(`Model "${model}" is not in the approved list. Approved models: ${approvedList}`);
   }
   
-  if (!model.includes('gpt-5')) {
-    console.warn('⚠️ WARNING: Non-GPT-5 model detected:', model);
-    throw new Error(`Only GPT-5 models are allowed. Attempted model: ${model}`);
+  // Additional check for forbidden patterns
+  if (model.includes('gpt-4')) {
+    console.error('❌ CRITICAL ERROR: GPT-4 model detected and BLOCKED:', model);
+    throw new Error(`GPT-4 models are FORBIDDEN. Attempted model: ${model}`);
   }
   
   return model;
 }
+
+// Legacy alias for backward compatibility (redirects to enforceApprovedModelsOnly)
+export const enforceGPT5Only = enforceApprovedModelsOnly;
 
 // Default model configurations for different services
 export const SERVICE_MODELS = {
@@ -50,13 +56,13 @@ export const SERVICE_MODELS = {
   ENHANCED_ANALYZER: APPROVED_MODELS.TEXT_ANALYSIS
 } as const;
 
-// Runtime validation
+// Runtime validation with exact allowlist checking
 export function getRuntimeSafeModel(requestedModel: string): string {
   try {
-    return enforceGPT5Only(requestedModel);
+    return enforceApprovedModelsOnly(requestedModel);
   } catch (error) {
     console.error('Model validation failed:', error);
-    console.log('🔄 Falling back to default GPT-5 model');
+    console.log('🔄 Falling back to default approved model');
     return APPROVED_MODELS.TEXT_ANALYSIS;
   }
 }

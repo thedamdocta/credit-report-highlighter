@@ -13,9 +13,9 @@ This implementation plan has been **SUCCESSFULLY COMPLETED** as of September 202
 
 1. **GPT-5 Model Compliance** - COMPLETED
    - Eliminated ALL GPT-4 references from codebase
-   - Fixed critical "gpt-5-vision model does not exist" API error
-   - Updated all services to use correct `gpt-5` model name (has built-in vision)
-   - Implemented comprehensive enforcement system
+   - Fixed critical API error - using approved models only
+   - Updated all services to use approved GPT-5 models: `gpt-5`, `gpt-5-mini`, `gpt-5-turbo`
+   - Implemented comprehensive enforcement system with exact ID validation
 
 2. **Yellow-Only Highlight System** - COMPLETED  
    - Updated PyMuPDF server to use ONLY yellow highlights (RGB: 1,1,0)
@@ -29,7 +29,7 @@ This implementation plan has been **SUCCESSFULLY COMPLETED** as of September 202
    - Added runtime model enforcement in core services
 
 4. **System Architecture** - COMPLETED
-   - GPT-5 Vision Analyzer with multimodal capabilities
+   - GPT-5 Analyzer with built-in multimodal capabilities (model: `gpt-5`)
    - PyMuPDF highlighting server for precise PDF annotation
    - React frontend with TypeScript
    - Flask backend for image processing
@@ -37,22 +37,22 @@ This implementation plan has been **SUCCESSFULLY COMPLETED** as of September 202
 
 ### 🎯 Next Steps for Testing:
 
-1. **Set OpenAI API Key** - Required for GPT-5 Vision API calls
+1. **Set OpenAI API Key** - Required for GPT-5 API calls
    ```bash
    export OPENAI_API_KEY="sk-your-key-here"
    ```
 
 2. **Test Real Analysis** - Upload a credit report and verify:
-   - GPT-5 Vision API calls work without "model does not exist" errors
+   - GPT-5 API calls work with approved models (`gpt-5`, `gpt-5-mini`, `gpt-5-turbo`)
    - Yellow highlights appear on actual missing information
    - Multi-page analysis and highlighting works correctly
    - Coordinate detection is accurate
 
 3. **Validation Commands Available:**
    ```bash
-   npm run audit-gpt5        # Complete compliance check
-   npm run check-gpt4        # Detect any GPT-4 references  
-   npm run validate-models   # Verify model configurations
+   npm run audit-models      # Complete compliance check
+   npm run check-models      # Detect any unauthorized model references  
+   npm run validate-models   # Verify model configurations match approved list
    ```
 
 ## [Key Files Updated]
@@ -69,7 +69,7 @@ All major system files have been updated for GPT-5 compliance:
 - `pymupdf_highlight_server.py` - Yellow-only highlighting system
 
 **Documentation & Policy:**
-- `CLAUDE_INSTRUCTIONS.md` - Instructions for future AI assistants
+- `AI_ASSISTANT_INSTRUCTIONS.md` - Instructions for future AI assistants
 - `GPT5_ONLY_POLICY.md` - Comprehensive policy documentation
 - `.gpt5-only` - Policy reminder file
 - `LATE_CHUNKING_IMPLEMENTATION.md` - Technical implementation details

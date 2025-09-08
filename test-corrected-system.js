@@ -3,7 +3,7 @@
 
 async function testCorrectedSystem() {
     console.log('🔧 Testing Corrected GPT-5 Vision System');
-    console.log('=' * 50);
+    console.log('='.repeat(50));
     
     try {
         // Test 1: Verify frontend is accessible
@@ -28,7 +28,7 @@ async function testCorrectedSystem() {
         
         // Test 3: Test image conversion with real PDF
         console.log('3️⃣ Testing image conversion...');
-        const testPDF = 'src/Brittney Bradwell Equifax.pdf';
+        const testPDF = 'src/sample_equifax_report.pdf';
         
         if (require('fs').existsSync(testPDF)) {
             const fs = require('fs');
@@ -66,9 +66,13 @@ async function testCorrectedSystem() {
         // Test 5: Check if OpenAI API key is configured
         console.log('4️⃣ Checking API configuration...');
         
-        // This would normally check environment variables or settings
-        // For now, just verify the system is ready
-        console.log('✅ System appears configured for API calls');
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            console.error('❌ OPENAI_API_KEY environment variable is not set');
+            console.error('Please set OPENAI_API_KEY before running tests');
+            process.exit(1);
+        }
+        console.log('✅ OPENAI_API_KEY is configured');
         
         // Test 6: Verify the corrected vision prompt structure
         console.log('5️⃣ Verifying vision analysis improvements...');
@@ -85,7 +89,7 @@ async function testCorrectedSystem() {
         improvementChecks.forEach(check => console.log(check));
         
         console.log('\n🎯 CORRECTED SYSTEM STATUS');
-        console.log('=' * 40);
+        console.log('='.repeat(40));
         console.log('✅ Mock data replaced with real API calls');
         console.log('✅ Vision prompts improved for accuracy');
         console.log('✅ Multi-page highlighting capability added');
@@ -113,10 +117,13 @@ testCorrectedSystem().then(success => {
     if (success) {
         console.log('\n✅ CORRECTED SYSTEM TEST PASSED');
         console.log('🚀 Ready for real GPT-5 Vision testing');
+        process.exit(0);
     } else {
         console.log('\n❌ CORRECTED SYSTEM TEST FAILED');
         console.log('🔧 Further fixes needed');
+        process.exit(1);
     }
 }).catch(error => {
     console.error('Fatal error:', error);
+    process.exit(1);
 });

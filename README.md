@@ -6,15 +6,20 @@ An advanced web application that analyzes credit reports using AI, identifies po
 
 **This application EXCLUSIVELY uses GPT-5 models. NO GPT-4 models are permitted.**
 
-- ✅ **Vision Analysis**: GPT-5 Vision
+- ✅ **Vision Analysis**: GPT-5 with built-in vision capabilities
 - ✅ **Text Analysis**: GPT-5
 - ❌ **GPT-4 Models**: FORBIDDEN
 
+### Enforcement Mechanisms:
+- **CI/CD Gate**: Automated validation on all pushes and PRs
+- **Pre-commit Hooks**: Local validation before every commit
+- **Build Blocking**: CI fails if GPT-4 references detected
+
 **Validation Commands:**
 ```bash
-npm run check-gpt4        # Check for GPT-4 references
+npm run check-models      # Check for unauthorized model references
 npm run validate-models   # Validate model configurations
-npm run audit-gpt5        # Complete GPT-5 audit
+npm run audit-models      # Complete model audit
 ```
 
 ## 🌟 Key Features
@@ -55,8 +60,11 @@ npm run audit-gpt5        # Complete GPT-5 audit
 git clone https://github.com/thedamdocta/credit-report-highlighter.git
 cd credit-report-highlighter
 
-# Install dependencies
+# Install dependencies (includes pre-commit hooks setup)
 npm install
+
+# Pre-commit hooks are automatically installed via Husky
+# They will validate model usage before every commit
 
 # Start development server
 npm run dev
