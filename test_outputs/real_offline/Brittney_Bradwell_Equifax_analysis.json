@@ -1,0 +1,482 @@
+{
+  "issues": [
+    {
+      "type": "PII_Exposure",
+      "severity": "high",
+      "description": "Full consumer name is visible and unmasked.",
+      "bbox": {
+        "x": 120,
+        "y": 1660,
+        "width": 900,
+        "height": 70
+      }
+    },
+    {
+      "type": "PII_Exposure",
+      "severity": "high",
+      "description": "Unique report confirmation number is visible and unmasked.",
+      "bbox": {
+        "x": 120,
+        "y": 1830,
+        "width": 450,
+        "height": 60
+      }
+    },
+    {
+      "type": "Missing_Metadata",
+      "severity": "medium",
+      "description": "Report date/time not present in the header area.",
+      "bbox": {
+        "x": 120,
+        "y": 1450,
+        "width": 2200,
+        "height": 180
+      }
+    },
+    {
+      "type": "Missing_Metadata",
+      "severity": "low",
+      "description": "Page number not shown in footer.",
+      "bbox": {
+        "x": 2000,
+        "y": 3200,
+        "width": 450,
+        "height": 70
+      }
+    },
+    {
+      "type": "Accessibility",
+      "severity": "low",
+      "description": "Name appears in light gray, which may reduce contrast against the white background.",
+      "bbox": {
+        "x": 120,
+        "y": 1660,
+        "width": 900,
+        "height": 70
+      }
+    },
+    {
+      "id": "pii_name_salutation",
+      "category": "PII Exposure",
+      "severity": "medium",
+      "description": "Consumer full name visible in the salutation line.",
+      "bbox": {
+        "x": 140,
+        "y": 340,
+        "width": 1000,
+        "height": 70
+      },
+      "confidence": 0.78
+    },
+    {
+      "id": "pii_name_footer",
+      "category": "PII Exposure",
+      "severity": "medium",
+      "description": "Consumer full name visible in the footer.",
+      "bbox": {
+        "x": 960,
+        "y": 3135,
+        "width": 640,
+        "height": 55
+      },
+      "confidence": 0.75
+    },
+    {
+      "id": "total_dtc_inconsistency",
+      "type": "calculation_inconsistency",
+      "description": "Debt-to-Credit shows 0.0% on the Total row even though the Installment row shows 116.0% and negative available, indicating utilization is not zero.",
+      "severity": "high",
+      "coordinates": [
+        {
+          "x": 1820,
+          "y": 1210,
+          "width": 260,
+          "height": 60
+        },
+        {
+          "x": 1820,
+          "y": 1110,
+          "width": 260,
+          "height": 60
+        },
+        {
+          "x": 1300,
+          "y": 1110,
+          "width": 260,
+          "height": 60
+        },
+        {
+          "x": 1300,
+          "y": 1210,
+          "width": 260,
+          "height": 60
+        }
+      ],
+      "recommendation": "Request clarification/correction from the bureau. Total utilization should reflect underlying account metrics consistently."
+    },
+    {
+      "id": "installment_limit_available_fields",
+      "type": "data_mapping_anomaly",
+      "description": "Installment accounts usually do not have Credit Limit or Available/Over-limit fields, but values are shown (limit $27,086; available -$4,447).",
+      "severity": "medium",
+      "coordinates": [
+        {
+          "x": 1560,
+          "y": 1110,
+          "width": 260,
+          "height": 60
+        },
+        {
+          "x": 1300,
+          "y": 1110,
+          "width": 260,
+          "height": 60
+        }
+      ],
+      "recommendation": "Verify whether these installment loans were misclassified or fields mis-mapped. Ask lender/bureau to correct if inaccurate."
+    },
+    {
+      "id": "high_inquiry_count",
+      "type": "potential_negative_item",
+      "description": "High number of inquiries reported (26), which can depress scores if they are hard pulls.",
+      "severity": "medium",
+      "coordinates": [
+        {
+          "x": 1920,
+          "y": 1610,
+          "width": 500,
+          "height": 50
+        }
+      ],
+      "recommendation": "Confirm which inquiries are hard vs. soft. Dispute any unauthorized hard inquiries."
+    },
+    {
+      "id": "equifax_same_day_inquiry",
+      "type": "potential_reporting_error",
+      "description": "Most Recent Inquiry is from EQUIFAX INC on the same date as the report. A self-pull should be soft and not impact scores.",
+      "severity": "low",
+      "coordinates": [
+        {
+          "x": 950,
+          "y": 1680,
+          "width": 1200,
+          "height": 50
+        }
+      ],
+      "recommendation": "Verify whether this was coded as a soft inquiry. If reported as hard, request reclassification."
+    },
+    {
+      "id": "negative_available_credit_on_closed_account",
+      "title": "Negative available credit shown on a closed/charged-off account",
+      "severity": "high",
+      "description": "Available Credit is negative while the account is marked CLOSED and CHARGE_OFF. Closed/charged-off accounts typically should not show available credit; negative availability suggests the account is being treated as revolving/active in utilization.",
+      "evidence": [
+        {
+          "label": "Available Credit \u2212$283",
+          "x": 1600,
+          "y": 480,
+          "width": 450,
+          "height": 60
+        },
+        {
+          "label": "Account Status CHARGE_OFF",
+          "x": 180,
+          "y": 460,
+          "width": 520,
+          "height": 60
+        },
+        {
+          "label": "FIRST PREMIER (CLOSED)",
+          "x": 180,
+          "y": 230,
+          "width": 900,
+          "height": 70
+        }
+      ]
+    },
+    {
+      "id": "missing_credit_limit_data",
+      "title": "Credit limit section is blank",
+      "severity": "medium",
+      "description": "The Credit Limit table is empty even though Available Credit is reported. Missing limit data can distort utilization and scoring.",
+      "evidence": [
+        {
+          "label": "Credit Limit header",
+          "x": 180,
+          "y": 1990,
+          "width": 300,
+          "height": 50
+        },
+        {
+          "label": "Blank Credit Limit table area",
+          "x": 180,
+          "y": 2050,
+          "width": 2190,
+          "height": 260
+        }
+      ]
+    },
+    {
+      "id": "scheduled_payments_missing_2024",
+      "title": "Scheduled payments missing for part of 2024",
+      "severity": "low",
+      "description": "The Scheduled Payment row for 2024 has amounts through May only; Jun\u2013Dec are blank while balances are reported through Dec.",
+      "evidence": [
+        {
+          "label": "Scheduled Payment section header",
+          "x": 180,
+          "y": 1260,
+          "width": 500,
+          "height": 50
+        },
+        {
+          "label": "2024 Scheduled Payment cells (Jun\u2013Dec) are blank",
+          "x": 1000,
+          "y": 1460,
+          "width": 1350,
+          "height": 60
+        },
+        {
+          "label": "2024 Balance row showing data through Dec",
+          "x": 380,
+          "y": 1040,
+          "width": 1900,
+          "height": 60
+        }
+      ]
+    },
+    {
+      "id": "actual_payments_missing_2024",
+      "title": "No actual payments reported for 2024",
+      "severity": "medium",
+      "description": "The Actual Payment row for 2024 is entirely blank despite an outstanding balance, which may indicate missing reporting or an error.",
+      "evidence": [
+        {
+          "label": "Actual Payment section header",
+          "x": 180,
+          "y": 1710,
+          "width": 500,
+          "height": 50
+        },
+        {
+          "label": "2024 Actual Payment row (blank)",
+          "x": 400,
+          "y": 1820,
+          "width": 1950,
+          "height": 60
+        }
+      ]
+    },
+    {
+      "id": "over_limit_utilization",
+      "title": "Balance exceeds implied credit limit (over limit)",
+      "severity": "high",
+      "description": "Reported Balance of $583 with Available Credit of \u2212$283 implies a $300 limit (utilization \u2248194%). Persistent $583 balances in mid/late-2024 indicate the account is over the limit.",
+      "evidence": [
+        {
+          "label": "Reported Balance $583",
+          "x": 1600,
+          "y": 420,
+          "width": 450,
+          "height": 60
+        },
+        {
+          "label": "Available Credit \u2212$283",
+          "x": 1600,
+          "y": 480,
+          "width": 450,
+          "height": 60
+        },
+        {
+          "label": "2024 Balance row (Jun\u2013Dec $583)",
+          "x": 1000,
+          "y": 1040,
+          "width": 1350,
+          "height": 60
+        }
+      ]
+    },
+    {
+      "id": "overlimit_balance",
+      "title": "Balance exceeds credit limit (overlimit)",
+      "severity": "high",
+      "description": "Reported balance of $583 is above the $300 credit limit.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2120,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Balance $583"
+        },
+        {
+          "bbox": {
+            "x": 200,
+            "y": 1980,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Credit Limit $300"
+        }
+      ]
+    },
+    {
+      "id": "charge_off_and_severe_delinquency_2024",
+      "title": "Charge-off and severe delinquency in 2024",
+      "severity": "high",
+      "description": "Payment history shows 30/60/90/120 days past due Jan\u2013Apr 2024 and Charge-Off (CO) from May through Dec 2024.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 150,
+            "y": 1140,
+            "width": 2250,
+            "height": 420
+          },
+          "snippet": "2024 row: Jan 30, Feb 60, Mar 90, Apr 120, May\u2013Dec CO"
+        },
+        {
+          "bbox": {
+            "x": 150,
+            "y": 1560,
+            "width": 900,
+            "height": 80
+          },
+          "snippet": "Legend: CO = Charge-Off"
+        }
+      ]
+    },
+    {
+      "id": "amount_past_due_equals_full_balance",
+      "title": "Amount past due equals full balance",
+      "severity": "high",
+      "description": "Amount past due is $583, equal to the reported balance, indicating the entire balance is delinquent.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2200,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Amount Past Due $583"
+        },
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2120,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Balance $583"
+        }
+      ]
+    },
+    {
+      "id": "recurring_past_due_amounts_2024",
+      "title": "Recurring $583 past-due amounts throughout 2024",
+      "severity": "medium",
+      "description": "The Amount Past Due table shows $583 listed for May\u2013Dec 2024, consistent with an unresolved charge-off.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 150,
+            "y": 780,
+            "width": 2250,
+            "height": 220
+          },
+          "snippet": "2024 row shows $583 for May\u2013Dec"
+        }
+      ]
+    },
+    {
+      "id": "recent_delinquencies_2023",
+      "title": "Multiple delinquencies in 2023",
+      "severity": "medium",
+      "description": "Payment history shows 30/60/90-day late payments during 2023.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 150,
+            "y": 1140,
+            "width": 2250,
+            "height": 420
+          },
+          "snippet": "2023 row with 30, 60, 90-day lates"
+        }
+      ]
+    },
+    {
+      "id": "stale_last_payment_date",
+      "title": "No payment since Nov 2023",
+      "severity": "medium",
+      "description": "Date of Last Payment is Nov 2023 while the account shows ongoing delinquency and charge-off in 2024.",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 1360,
+            "y": 2200,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Date of Last Payment Nov 2023"
+        },
+        {
+          "bbox": {
+            "x": 150,
+            "y": 1140,
+            "width": 2250,
+            "height": 420
+          },
+          "snippet": "2024 shows CO after Apr"
+        }
+      ]
+    },
+    {
+      "id": "missing_or_unknown_fields",
+      "title": "Missing or unknown account fields",
+      "severity": "low",
+      "description": "Terms Frequency is UNKNOWN and several fields appear blank (Actual Payment Amount, Date of Last Activity, Scheduled Payment Amount).",
+      "evidence": [
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2060,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Terms Frequency UNKNOWN"
+        },
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2280,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Actual Payment Amount \u2014 blank"
+        },
+        {
+          "bbox": {
+            "x": 200,
+            "y": 2360,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Date of Last Activity \u2014 blank"
+        },
+        {
+          "bbox": {
+            "x": 1360,
+            "y": 2360,
+            "width": 900,
+            "height": 70
+          },
+          "snippet": "Scheduled Payment Amount \u2014 blank"
+        }
+      ]
+    }
+  ]
+}

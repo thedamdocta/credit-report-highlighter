@@ -58,13 +58,8 @@ export class PDFProcessor {
       };
     } catch (error) {
       console.error(`Error processing page ${pageNumber}:`, error);
-      return {
-        pageNumber,
-        text: '',
-        width: 595, // Default A4 width
-        height: 842, // Default A4 height
-        rotation: 0,
-      };
+      // Strict mode: fail fast, do not return placeholder pages
+      throw new Error(`Failed to process page ${pageNumber}`);
     }
   }
 

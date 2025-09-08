@@ -1,0 +1,21 @@
+🚨 GPT-5 ONLY APPLICATION 🚨
+
+This application MUST ONLY use GPT-5 models.
+
+❌ FORBIDDEN:
+- gpt-4
+- gpt-4o  
+- gpt-4-turbo
+- gpt-4-vision-preview
+- Any model containing "gpt-4"
+
+✅ APPROVED:
+- gpt-5 (has built-in vision)
+- gpt-5-mini
+- gpt-5-turbo
+
+🔧 VALIDATION:
+Run: npm run audit-gpt5
+
+📅 Policy Created: 2025-09-06
+🔒 Enforcement: MANDATORY

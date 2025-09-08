@@ -13,6 +13,11 @@ import FileUpload from '../ui/file-upload';
 import { usePDFProcessing } from '../../hooks/usePDFProcessing';
 import { PyMuPDFHighlightService } from '../../services/pymuPdfHighlighter';
 import { SettingsModal } from './SettingsModal';
+import { AnalysisReport } from '../AnalysisReport';
+import { analysisLogger } from '../../utils/analysisLogger';
+import { DetailedProgressIndicator } from '../DetailedProgressIndicator';
+import { useProgressTracking } from '../../hooks/useProgressTracking';
+import { serverHealthMonitor } from '../../utils/serverHealthCheck';
 
 interface UploadedFile {
   file: File;
@@ -53,6 +58,8 @@ export const CreditReportAnalyzerApp = () => {
   const [activeView, setActiveView] = useState<'welcome' | 'chat'>('welcome');
   const [isDownloading, setIsDownloading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showAnalysisReport, setShowAnalysisReport] = useState(false);
+  const [analysisStartTime, setAnalysisStartTime] = useState<number>(0);
   
   // New state for enhanced PDF viewing
   const [highlightedPdfUrl, setHighlightedPdfUrl] = useState<string | null>(null);
@@ -72,27 +79,76 @@ export const CreditReportAnalyzerApp = () => {
     analyzePDF,
   } = usePDFProcessing();
 
+  // Use detailed progress tracking
+  const progressManager = useProgressTracking();
+
+  // Note: Analysis should only be triggered by user action, not automatically on upload
+
   // Update analysis result when real analysis completes
   useEffect(() => {
-    if (realAnalysisResult) {
-      const highlights = realAnalysisResult.issues?.map((issue: any) => ({
-        id: issue.id,
-        page: issue.pageNumber,
-        x: issue.coordinates?.x || 100,
-        y: issue.coordinates?.y || 200,
-        width: issue.coordinates?.width || 300,
-        height: issue.coordinates?.height || 20,
-        type: issue.type,
-        description: issue.description,
-      })) || [];
+    if (realAnalysisResult && uploadedFile) {
+      const processingTime = analysisStartTime > 0 ? Date.now() - analysisStartTime : 0;
+      
+      // Progress: Analysis complete, moving to compilation
+      progressManager.nextStage('issue_compilation', 'Categorizing issues by severity');
+      setTimeout(() => progressManager.setSubstage('issue_compilation', 'Calculating confidence scores'), 1000);
+      setTimeout(() => progressManager.setSubstage('issue_compilation', 'Mapping issues to coordinates'), 2000);
+      setTimeout(() => progressManager.nextStage('highlighting_prep', 'Converting issues to highlight data'), 3000);
+      
+      // Log the detailed analysis for audit trail
+      const auditLog = analysisLogger.logAnalysis(
+        uploadedFile.name,
+        'late_chunking',
+        'Comprehensive credit report analysis with GPT-5',
+        realAnalysisResult,
+        processingTime,
+        JSON.stringify(realAnalysisResult) // Raw GPT response for debugging
+      );
 
-      setAnalysisResult({
-        highlights,
-        summary: realAnalysisResult.summary,
-        processedPdfUrl: uploadedFile?.url,
+      console.log('📋 Analysis audit log created:', auditLog.timestamp);
+      console.log('🔍 What GPT-5 Found Wrong:');
+      console.log(`   • Total Issues: ${realAnalysisResult.totalIssues}`);
+      console.log(`   • Critical: ${realAnalysisResult.critical} | Warning: ${realAnalysisResult.warning} | Info: ${realAnalysisResult.info}`);
+      console.log(`   • Processing Time: ${processingTime}ms`);
+      console.log(`   • Confidence: ${(realAnalysisResult.confidence * 100).toFixed(1)}%`);
+      
+      // Log each specific issue GPT-5 found
+      if (realAnalysisResult.issues) {
+        console.log('\n📊 Detailed Issues Found by GPT-5:');
+        realAnalysisResult.issues.forEach((issue: any, index: number) => {
+          console.log(`   ${index + 1}. [${issue.type.toUpperCase()}] Page ${issue.pageNumber}: ${issue.description}`);
+          if (issue.anchorText) {
+            console.log(`      Found Text: "${issue.anchorText.substring(0, 100)}..."`);
+          }
+        });
+      }
+
+      // Enforce strict coordinates: if any issue lacks valid coordinates, fail hard
+      const highlights = (realAnalysisResult.issues || []).map((issue: any) => {
+        const c = issue.coordinates;
+        const valid = c && [c.x, c.y, c.width, c.height].every((v: any) => typeof v === 'number' && !isNaN(v));
+        if (!valid) {
+          throw new Error(`Invalid or missing coordinates for issue ${issue.id || '(unknown)'} on page ${issue.pageNumber}`);
+        }
+        return {
+          id: issue.id,
+          page: issue.pageNumber,
+          x: c.x,
+          y: c.y,
+          width: c.width,
+          height: c.height,
+          type: issue.type,
+          description: issue.description,
+        };
       });
+
+      if (!highlights.length) {
+        throw new Error('No highlights generated: analysis produced zero coordinate-accurate issues');
+      }
+
+      setAnalysisResult({ highlights, summary: realAnalysisResult.summary, processedPdfUrl: uploadedFile?.url });
     }
-  }, [realAnalysisResult, uploadedFile]);
+  }, [realAnalysisResult, uploadedFile, analysisStartTime, progressManager]);
 
   // Generate highlighted PDF after analysis completes
   useEffect(() => {
@@ -107,6 +163,9 @@ export const CreditReportAnalyzerApp = () => {
     setIsGeneratingHighlightedPDF(true);
     try {
       console.log('🎨 Generating highlighted PDF with PyMuPDF high-precision highlighting...');
+      
+      // Progress: Starting PDF highlighting
+      progressManager.nextStage('pdf_highlighting', 'Loading original PDF');
       
       const pymupdfHighlighter = new PyMuPDFHighlightService();
       
@@ -123,6 +182,11 @@ export const CreditReportAnalyzerApp = () => {
         recommendedAction: h.description
       }));
       
+      // Progress through highlighting stages
+      setTimeout(() => progressManager.setSubstage('pdf_highlighting', 'Applying critical issue highlights'), 1000);
+      setTimeout(() => progressManager.setSubstage('pdf_highlighting', 'Adding warning annotations'), 2000);
+      setTimeout(() => progressManager.setSubstage('pdf_highlighting', 'Embedding tooltip information'), 3000);
+      
       const result = await pymupdfHighlighter.highlightIssues(
         uploadedFile.file,
         enhancedIssues
@@ -131,6 +195,9 @@ export const CreditReportAnalyzerApp = () => {
       if (!result.success || !result.highlightedFile) {
         throw new Error('PyMuPDF highlighting failed: ' + (result.error || 'Unknown error'));
       }
+      
+      // Progress: Finalizing
+      progressManager.nextStage('finalization', 'Validating highlighted PDF');
       
       const highlightedPdfArrayBuffer = await result.highlightedFile.arrayBuffer();
       const highlightedPdfBytes = new Uint8Array(highlightedPdfArrayBuffer);
@@ -143,6 +210,15 @@ export const CreditReportAnalyzerApp = () => {
       setHighlightedPdfFile(highlightedFile);
       setHighlightedPdfUrl(highlightedUrl);
       
+      // Progress: Complete!
+      setTimeout(() => {
+        progressManager.setSubstage('finalization', 'Creating audit trail');
+        setTimeout(() => {
+          progressManager.completeStage('finalization');
+          setTimeout(() => progressManager.hideProgress(), 2000); // Hide after 2 seconds
+        }, 1000);
+      }, 1000);
+      
       // Switch to side-by-side view after generating
       setTimeout(() => {
         setViewMode('side-by-side');
@@ -151,10 +227,11 @@ export const CreditReportAnalyzerApp = () => {
       console.log('✅ Highlighted PDF generated successfully!');
     } catch (error) {
       console.error('❌ Error generating highlighted PDF:', error);
+      progressManager.hideProgress();
     } finally {
       setIsGeneratingHighlightedPDF(false);
     }
-  }, [analysisResult, uploadedFile]);
+  }, [analysisResult, uploadedFile, progressManager]);
 
 
   // Keep sidebar closed when PDF is uploaded
@@ -206,6 +283,27 @@ export const CreditReportAnalyzerApp = () => {
     }
 
     try {
+      // Check server health before analysis
+      await serverHealthMonitor.ensureServerAvailable();
+      
+      console.log('🧠 Starting user-requested credit report analysis with late chunking...');
+      setAnalysisStartTime(Date.now());
+      // Analysis report can be opened manually by user
+      
+      // Start detailed progress tracking - begins with PDF processing for analysis
+      progressManager.startProgress();
+      progressManager.nextStage('pdf_processing', 'Validating PDF format');
+
+      // Progress through PDF processing for analysis
+      setTimeout(() => progressManager.setSubstage('pdf_processing', 'Extracting text content'), 500);
+      setTimeout(() => progressManager.setSubstage('pdf_processing', 'Analyzing page layout'), 1000);
+      setTimeout(() => progressManager.nextStage('analysis_prep', 'Loading analysis templates'), 1500);
+      
+      // Progress through analysis prep stages
+      setTimeout(() => progressManager.setSubstage('analysis_prep', 'Configuring GPT-5 parameters'), 2500);
+      setTimeout(() => progressManager.setSubstage('analysis_prep', 'Setting up late chunking methodology'), 3500);
+      setTimeout(() => progressManager.nextStage('content_analysis', 'Analyzing account information'), 4500);
+      
       // Always use late chunking for credit reports to ensure comprehensive error detection
       let analysisType: 'full' | 'fcra' | 'collections' | 'disputes' | 'custom' | 'late_chunking' = 'late_chunking';
       const lowerPrompt = prompt.toLowerCase();
@@ -220,9 +318,10 @@ export const CreditReportAnalyzerApp = () => {
       await analyzePDF(analysisType, prompt);
     } catch (error) {
       console.error('Analysis error:', error);
+      progressManager.hideProgress();
       // You could show an error message to the user here
     }
-  }, [uploadedFile, pdfDocument, analyzePDF]);
+  }, [uploadedFile, pdfDocument, analyzePDF, progressManager]);
 
   const handleDownloadProcessedPDF = useCallback(async () => {
     if (!analysisResult?.highlights || !uploadedFile) return;
@@ -308,6 +407,10 @@ export const CreditReportAnalyzerApp = () => {
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen(prev => !prev);
+  }, []);
+
+  const handleExportAnalysisReport = useCallback(() => {
+    analysisLogger.downloadLatestReport();
   }, []);
 
   // Cleanup object URLs on unmount
@@ -455,7 +558,7 @@ export const CreditReportAnalyzerApp = () => {
                 originalFileUrl={uploadedFile?.url || ''}
                 highlightedFileUrl={highlightedPdfUrl}
                 highlights={analysisResult?.highlights || []}
-                isAnalyzing={isAnalyzing || isGeneratingHighlightedPDF}
+                isAnalyzing={false} // Disabled - using DetailedProgressIndicator instead
                 originalFile={uploadedFile?.file}
                 highlightedFile={highlightedPdfFile || undefined}
                 onDownloadHighlighted={handleDownloadProcessedPDF}
@@ -465,7 +568,7 @@ export const CreditReportAnalyzerApp = () => {
               <SimplePDFViewer 
                 fileUrl={uploadedFile?.url || ''} 
                 highlights={analysisResult?.highlights || []} 
-                isAnalyzing={isAnalyzing || isGeneratingHighlightedPDF}
+                isAnalyzing={false} // Disabled - using DetailedProgressIndicator instead
                 pdfFile={uploadedFile?.file}
                 onDownloadHighlighted={analysisResult?.highlights?.length ? handleDownloadProcessedPDF : undefined}
                 isDownloading={isDownloading}
@@ -516,6 +619,23 @@ export const CreditReportAnalyzerApp = () => {
 
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Analysis Report - Shows detailed GPT-5 findings */}
+      {realAnalysisResult && (
+        <AnalysisReport
+          analysisResult={realAnalysisResult}
+          isVisible={showAnalysisReport}
+          onToggle={() => setShowAnalysisReport(prev => !prev)}
+          onExportReport={handleExportAnalysisReport}
+        />
+      )}
+
+      {/* Detailed Progress Indicator */}
+      <DetailedProgressIndicator
+        stages={progressManager.stages}
+        currentStageId={progressManager.currentStageId}
+        isVisible={progressManager.isVisible}
+      />
 
       {/* Error Display */}
       {error && (

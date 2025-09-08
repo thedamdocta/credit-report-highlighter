@@ -15,6 +15,7 @@ import { EnhancedAIAnalyzer } from './enhancedAiAnalyzer';
 import { GeminiCreditAnalyzer } from './geminiAnalyzer';
 import { HybridCreditAnalyzer } from './hybridAnalyzer';
 import { EnhancedCreditAnalyzer } from './enhancedCreditAnalyzer';
+import { GPT5VisionAnalyzer } from './gpt5VisionAnalyzer';
 
 export class CreditAnalyzer {
   private apiKey: string;
@@ -24,6 +25,7 @@ export class CreditAnalyzer {
   private geminiAnalyzer: GeminiCreditAnalyzer;
   private hybridAnalyzer: HybridCreditAnalyzer;
   private enhancedCreditAnalyzer: EnhancedCreditAnalyzer;
+  private gpt5VisionAnalyzer: GPT5VisionAnalyzer;
 
   constructor() {
     this.apiKey = API_CONFIG.OPENAI_API_KEY;
@@ -37,6 +39,7 @@ export class CreditAnalyzer {
     this.geminiAnalyzer = new GeminiCreditAnalyzer();
     this.hybridAnalyzer = new HybridCreditAnalyzer();
     this.enhancedCreditAnalyzer = new EnhancedCreditAnalyzer();
+    this.gpt5VisionAnalyzer = new GPT5VisionAnalyzer();
   }
 
   async analyzeCreditReport(
@@ -44,13 +47,25 @@ export class CreditAnalyzer {
     analysisType: AnalysisType,
     customPrompt?: string,
     useLateChunking?: boolean,
-    progressCallback?: (progress: ProcessingProgress) => void
+    progressCallback?: (progress: ProcessingProgress) => void,
+    pdfFile?: File
   ): Promise<AnalysisResult> {
     try {
-      // ONLY use Enhanced Credit Analyzer with GPT-5 and Late Chunking
-      // No fallbacks - fail cleanly if this doesn't work
-      console.log('🎯 Using Enhanced Credit Analyzer with GPT-5 Late Chunking for comprehensive error detection');
-      return await this.enhancedCreditAnalyzer.analyzeWithLateChunking(pdfDocument);
+      // Use GPT-5 Vision Analyzer for comprehensive analysis with empty cell detection
+      console.log('🎯 Using GPT-5 Vision Analyzer with smart chunking and empty cell detection');
+      
+      const progressWrapper = (message: string) => {
+        if (progressCallback) {
+          progressCallback({
+            status: 'processing',
+            progress: 50,
+            message,
+            result: null
+          });
+        }
+      };
+      
+      return await this.gpt5VisionAnalyzer.analyzeWithVision(pdfDocument, pdfFile, progressWrapper);
     } catch (error) {
       console.error('AI Analysis Error:', error);
       throw new Error('Failed to analyze credit report');

@@ -15,7 +15,7 @@ I've successfully built a **complete overhaul** of your credit report analysis s
 
 ### 2. **Advanced Hierarchical Chunking System** (`advancedChunkingService.ts`)
 - **4-level hierarchy**: Document → Section → Page → Paragraph chunking
-- **Adaptive chunk sizing**: 128K token chunks with 2K overlap for GPT-4 Turbo
+- **Adaptive chunk sizing**: 128K token chunks with 2K overlap for GPT-5 Vision
 - **Semantic boundary preservation**: Tables and paragraphs remain intact
 - **Cross-page context windows**: 10-page context preservation
 - **Parallel processing**: Batch embedding generation for performance
@@ -58,7 +58,7 @@ I've successfully built a **complete overhaul** of your credit report analysis s
 - ✅ **Semantic Boundaries**: Tables and sections kept intact
 
 ### **Advanced Token Management**
-- ✅ **128K Token Chunks**: GPT-4 Turbo large context windows
+- ✅ **128K Token Chunks**: GPT-5 Vision large context windows
 - ✅ **Intelligent Overlap**: 2K-5K token overlap for continuity
 - ✅ **Priority Processing**: Critical content processed first
 - ✅ **Streaming Analysis**: Batch processing for very large documents

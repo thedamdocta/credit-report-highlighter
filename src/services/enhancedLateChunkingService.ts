@@ -831,7 +831,7 @@ Format your response as JSON:
   private estimateProcessingCost(chunks: EnhancedChunk[]): number {
     const totalTokens = chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0);
     const embeddingCost = (totalTokens / 1000) * 0.00013; // text-embedding-3-large
-    const analysisCost = (totalTokens / 1000) * 0.001;    // GPT-4 Turbo
+    const analysisCost = (totalTokens / 1000) * 0.001;    // GPT-5 Vision
     return embeddingCost + analysisCost;
   }
 

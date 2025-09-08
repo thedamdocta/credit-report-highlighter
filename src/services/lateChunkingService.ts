@@ -77,13 +77,14 @@ export class LateChunkingService {
       const fullText = this.extractFullText(pdfDocument);
       console.log(`Processing document with ${fullText.length} characters`);
 
-      // Step 2: Pre-chunk the document for embedding limits
-      const initialChunks = this.createInitialChunks(fullText);
-      console.log(`Created ${initialChunks.length} initial chunks for embedding`);
-      
-      // Step 3: Generate embeddings for each chunk
-      const chunkedEmbeddings = await this.performLateChunking(initialChunks);
-      console.log(`Created ${chunkedEmbeddings.length} contextually-aware chunks`);
+      // Step 2: Create a single embedding for the full document
+      // Late chunking principle: embed once, then pool for segments
+      const documentEmbedding = await this.embedEntireDocument(fullText);
+      console.log('Full document embedding created');
+
+      // Step 3: Create dynamic, context-preserving chunks by pooling from the full embedding
+      const chunkedEmbeddings = await this.performLateChunking(documentEmbedding, fullText);
+      console.log(`Created ${chunkedEmbeddings.length} dynamic late chunks`);
 
       // Step 4: Analyze each chunk with preserved context
       const chunkAnalyses = await this.analyzeChunksWithContext(
@@ -227,69 +228,67 @@ export class LateChunkingService {
     throw lastError || new Error('Failed to embed document after multiple attempts');
   }
 
-  private async performLateChunking(initialChunks: string[]): Promise<ChunkedEmbedding[]> {
+  private async performLateChunking(documentEmbedding: number[], fullText: string): Promise<ChunkedEmbedding[]> {
+    // Dynamically compute chunk boundaries based on document length and config
+    const boundaries = this.computeDynamicChunkBoundaries(fullText, this.config.maxChunkSize, this.config.overlapSize);
     const chunks: ChunkedEmbedding[] = [];
-    
-    console.log(`Generating embeddings for ${initialChunks.length} chunks...`);
-    
-    // Process chunks sequentially to avoid rate limiting
-    for (let index = 0; index < initialChunks.length; index++) {
-      const chunkText = initialChunks[index];
-      
-      try {
-        // Generate embedding for this chunk
-        console.log(`Embedding chunk ${index + 1}/${initialChunks.length} (${chunkText.length} chars)`);
-        const embedding = await this.embedEntireDocument(chunkText);
-        
-        chunks.push({
-          id: `chunk-${index}`,
-          text: chunkText,
-          embedding,
-          tokenSpan: {
-            start: 0,
-            end: chunkText.length
-          },
-          pageNumbers: [1], // Will be determined later
-          contextPreserved: true,
-          metadata: {
-            chunkIndex: index,
-            startPos: 0,
-            endPos: chunkText.length,
-            contextPreserved: true
-          }
-        });
-        
-        console.log(`✓ Successfully embedded chunk ${index + 1}`);
-        
-      } catch (error) {
-        console.error(`✗ Failed to embed chunk ${index + 1}:`, error);
-        // Return chunk without embedding rather than failing completely
-        chunks.push({
-          id: `chunk-${index}-failed`,
-          text: chunkText,
-          embedding: [],
-          tokenSpan: {
-            start: 0,
-            end: chunkText.length
-          },
-          pageNumbers: [1], // Will be determined later
-          contextPreserved: false,
-          metadata: {
-            chunkIndex: index,
-            startPos: 0,
-            endPos: chunkText.length,
-            contextPreserved: false
-          }
-        });
-      }
-      
-      // Small delay to avoid rate limiting
-      if (index < initialChunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+
+    for (let i = 0; i < boundaries.length; i++) {
+      const { start, end } = boundaries[i];
+      const text = fullText.substring(start, end);
+
+      // Pool embedding segment proportionally from the full embedding
+      const pooled = this.poolEmbeddingForChunk(documentEmbedding, start, end, fullText.length);
+
+      chunks.push({
+        id: `chunk-${i}`,
+        text,
+        embedding: pooled,
+        tokenSpan: { start, end },
+        pageNumbers: this.getPageNumbersForChunk(text, start, fullText),
+        contextPreserved: true,
+        metadata: {
+          chunkIndex: i,
+          originalLength: fullText.length,
+          startPos: start,
+          endPos: end,
+          contextPreserved: true
+        }
+      });
     }
 
     return chunks;
+  }
+
+  private computeDynamicChunkBoundaries(fullText: string, defaultSize: number, overlap: number): Array<{ start: number; end: number }> {
+    const boundaries: Array<{ start: number; end: number }> = [];
+
+    // Estimate tokens and pick a target char size per chunk to keep GPT-5 prompts safe
+    const totalTokens = Math.ceil(fullText.length / 4);
+    const targetTokensPerChunk = totalTokens > 32000 ? 8000 : totalTokens > 16000 ? 6000 : 4000;
+    const targetChars = targetTokensPerChunk * 4; // rough conversion
+
+    let pos = 0;
+    while (pos < fullText.length) {
+      let chunkEnd = Math.min(pos + targetChars, fullText.length);
+
+      // Try to end at a natural boundary: paragraph, sentence, or newline
+      if (chunkEnd < fullText.length) {
+        const para = fullText.lastIndexOf('\n\n', chunkEnd);
+        const sentence = fullText.lastIndexOf('. ', chunkEnd);
+        const newline = fullText.lastIndexOf('\n', chunkEnd);
+
+        const candidates = [para, sentence, newline].filter(ix => ix > pos + targetChars * 0.5);
+        if (candidates.length > 0) {
+          chunkEnd = Math.max(...candidates) + 1;
+        }
+      }
+
+      boundaries.push({ start: pos, end: chunkEnd });
+      pos = Math.max(chunkEnd - overlap, chunkEnd);
+    }
+
+    return boundaries;
   }
 
   private poolEmbeddingForChunk(
@@ -581,7 +580,7 @@ Only return valid JSON, no additional text.`;
     // Rough cost estimation (tokens = chars / 4, costs based on OpenAI pricing)
     const estimatedTokens = Math.ceil(documentLength / 4);
     const embeddingCost = (estimatedTokens / 1000) * 0.00002; // text-embedding-3-small pricing
-    const analysisCost = (estimatedTokens / 1000) * 0.001; // rough GPT-4 input cost
+    const analysisCost = (estimatedTokens / 1000) * 0.001; // rough GPT-5 Vision input cost
     
     return {
       estimatedTokens,

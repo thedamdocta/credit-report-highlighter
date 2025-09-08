@@ -10,6 +10,7 @@ import type {
 } from '../types/highlighting';
 import type { TextToken } from '../types/creditReport';
 import { CoordinateMapper } from './coordinateMapper';
+import { API_CONFIG } from '../config/api';
 
 export class PyMuPDFHighlightService implements HighlightService {
   public strategy: HighlightStrategy = {
@@ -67,12 +68,27 @@ export class PyMuPDFHighlightService implements HighlightService {
       // Step 1: Extract page tokens for coordinate mapping
       const pageTokens = await this.extractPageTokens(pdfFile);
 
-      // Step 2: Map issues to highlight regions
+      // Step 2: Build regions strictly from provided coordinates (no remapping)
       const allRegions: HighlightRegion[] = [];
-      
       for (const issue of issues) {
-        const regions = this.mapIssueToRegions(issue, pageTokens);
-        allRegions.push(...regions);
+        if (!issue.coordinates || ![issue.coordinates.x, issue.coordinates.y, issue.coordinates.width, issue.coordinates.height].every(v => typeof v === 'number' && !isNaN(v))) {
+          throw new Error(`Issue ${issue.id} is missing valid coordinates`);
+        }
+        allRegions.push({
+          id: `${issue.id}-direct`,
+          page: issue.pageNumber,
+          rect: {
+            x: issue.coordinates.x,
+            y: issue.coordinates.y,
+            width: issue.coordinates.width,
+            height: issue.coordinates.height,
+          },
+          color: this.config.colors[issue.type],
+          opacity: this.config.opacity.default,
+          type: 'highlight',
+          tooltip: issue.description,
+          metadata: { issueId: issue.id, severity: issue.type, category: issue.category }
+        });
       }
 
       // Step 3: Optimize regions
@@ -203,19 +219,8 @@ export class PyMuPDFHighlightService implements HighlightService {
     // Prepare highlighting data for PyMuPDF
     const highlightData = this.preparePyMuPDFData(regions, crossPageLinks);
 
-    try {
-      // Option 1: Use browser-side PyMuPDF if available
-      const highlightedBuffer = await this.processPDFWithPyMuPDF(arrayBuffer, highlightData);
-      
-      return new File([highlightedBuffer], `${pdfFile.name.replace('.pdf', '_highlighted.pdf')}`, {
-        type: 'application/pdf'
-      });
-
-    } catch (error) {
-      // Option 2: Fallback to server-side processing
-      console.log('Browser PyMuPDF failed, attempting server-side processing...');
-      return await this.processWithServerSide(pdfFile, highlightData);
-    }
+    // Strict mode: no client-side fallback; use server only and fail on error
+    return await this.processWithServerSide(pdfFile, highlightData);
   }
 
   private preparePyMuPDFData(
@@ -304,7 +309,7 @@ export class PyMuPDFHighlightService implements HighlightService {
       
       formData.append('issues', JSON.stringify(allRegions));
 
-      const response = await fetch('http://localhost:5174/highlight-pdf', {
+      const response = await fetch(`${API_CONFIG.PYMUPDF_SERVER_URL}/highlight-pdf`, {
         method: 'POST',
         body: formData
       });
@@ -351,7 +356,7 @@ export class PyMuPDFHighlightService implements HighlightService {
     
     formData.append('issues', JSON.stringify(allRegions));
 
-    const response = await fetch('http://localhost:5174/highlight-pdf', {
+    const response = await fetch(`${API_CONFIG.PYMUPDF_SERVER_URL}/highlight-pdf`, {
       method: 'POST',
       body: formData
     });

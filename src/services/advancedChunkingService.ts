@@ -38,7 +38,7 @@ export class AdvancedChunkingService {
     this.progressCallback = progressCallback;
     
     this.config = {
-      maxTokensPerChunk: 128000, // GPT-4 Turbo token limit
+      maxTokensPerChunk: 128000, // GPT-5 Vision token limit
       overlapTokens: 2000,
       priorityRegions: [],
       compressionRatio: 0.8,

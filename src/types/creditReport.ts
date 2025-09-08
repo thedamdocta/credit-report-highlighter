@@ -16,6 +16,9 @@ export interface CreditIssue {
   anchorText?: string;
   fcraSection?: string;
   recommendedAction?: string;
+  // Semantic mapping metadata
+  mappingConfidence?: number; // Always 1.0 for exact matches only
+  mappingMethod?: 'exact_match'; // Only exact matching - no fallbacks
 }
 
 export interface AnalysisResult {

@@ -14,17 +14,25 @@ from flask_cors import CORS
 import fitz  # PyMuPDF
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+# Explicit, permissive CORS for local dev (frontend at 5173)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers.setdefault('Access-Control-Allow-Origin', '*')
+    response.headers.setdefault('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    return response
 
 class PreciseHighlighter:
     """High-precision PDF highlighting using PyMuPDF"""
     
     def __init__(self):
         self.color_map = {
-            'critical': (1, 0.2, 0.2),  # Red
-            'warning': (1, 0.6, 0.2),   # Orange  
-            'attention': (1, 0.9, 0.3), # Yellow
-            'info': (0.3, 0.6, 1)       # Blue
+            'critical': (1, 1, 0),      # Yellow
+            'warning': (1, 1, 0),       # Yellow  
+            'attention': (1, 1, 0),     # Yellow
+            'info': (1, 1, 0)           # Yellow
         }
     
     def highlight_pdf(self, pdf_bytes: bytes, issues: List[Dict[str, Any]]) -> bytes:
@@ -74,18 +82,10 @@ class PreciseHighlighter:
             doc.close()
     
     def _add_highlight_to_page(self, page: fitz.Page, issue: Dict[str, Any]):
-        """Add a single highlight to a page"""
-        
-        # Get coordinates
+        """Add a single highlight to a page. Coordinates are REQUIRED."""
         coords = issue.get('coordinates')
         if not coords:
-            # Try to find text if no coordinates provided
-            anchor_text = issue.get('anchorText', issue.get('textToHighlight', ''))
-            if anchor_text:
-                coords = self._find_text_coordinates(page, anchor_text)
-        
-        if not coords:
-            return
+            raise ValueError('Missing coordinates for issue')
         
         # Convert coordinates to PyMuPDF format
         rect = fitz.Rect(
@@ -94,6 +94,11 @@ class PreciseHighlighter:
             coords.get('x', 0) + coords.get('width', 100),
             coords.get('y', 0) + coords.get('height', 20)
         )
+
+        # Validate rectangle is within the page bounds
+        page_rect = page.rect
+        if not rect.intersects(page_rect):
+            raise ValueError(f'Highlight rectangle out of bounds: {rect} not in page {page.number + 1} size {page_rect}')
         
         # Get color for issue type
         issue_type = issue.get('type', 'info')
@@ -168,6 +173,65 @@ def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "service": "PyMuPDF Highlighting Server"})
 
+@app.route('/extract-text-coordinates', methods=['POST'])
+def extract_text_coordinates():
+    """Extract precise text coordinates from PDF for semantic mapping"""
+    try:
+        if 'pdf' not in request.files:
+            return jsonify({'error': 'No PDF file provided'}), 400
+        
+        pdf_file = request.files['pdf']
+        pdf_bytes = pdf_file.read()
+        
+        # Open PDF with PyMuPDF
+        pdf_doc = fitz.open(stream=pdf_bytes)
+        text_tokens = []
+        
+        print(f"🔍 Extracting text coordinates from {len(pdf_doc)} pages...")
+        
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc[page_num]
+            
+            # Get text with precise coordinates using get_text("dict")
+            text_dict = page.get_text("dict")
+            
+            for block in text_dict.get("blocks", []):
+                if block.get("type") == 0:  # Text block (not image)
+                    for line in block.get("lines", []):
+                        for span in line.get("spans", []):
+                            text = span.get("text", "").strip()
+                            if len(text) > 0:  # Skip empty text
+                                bbox = span.get("bbox", [0, 0, 0, 0])  # [x0, y0, x1, y1]
+                                font_info = span.get("font", "")
+                                font_size = span.get("size", 12)
+                                
+                                text_tokens.append({
+                                    "text": text,
+                                    "x": round(bbox[0], 2),
+                                    "y": round(bbox[1], 2),
+                                    "width": round(bbox[2] - bbox[0], 2),
+                                    "height": round(bbox[3] - bbox[1], 2),
+                                    "page": page_num + 1,
+                                    "fontSize": round(font_size, 2),
+                                    "fontName": font_info,
+                                    "bbox": [round(x, 2) for x in bbox]
+                                })
+        
+        pdf_doc.close()
+        
+        print(f"✅ Extracted {len(text_tokens)} text tokens with precise coordinates")
+        
+        return jsonify({
+            'success': True,
+            'textTokens': text_tokens,
+            'totalTokens': len(text_tokens),
+            'message': f'Extracted coordinates for {len(text_tokens)} text elements'
+        })
+        
+    except Exception as e:
+        print(f"❌ Text coordinate extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/highlight-pdf', methods=['POST'])
 def highlight_pdf():
     """
@@ -195,6 +259,21 @@ def highlight_pdf():
         except json.JSONDecodeError:
             return jsonify({"error": "Invalid JSON in issues data"}), 400
         
+        # Strict validation: every issue must include numeric coordinates
+        def _has_valid_coords(issue: Dict[str, Any]) -> bool:
+            c = issue.get('coordinates')
+            if not isinstance(c, dict):
+                return False
+            for k in ('x', 'y', 'width', 'height'):
+                v = c.get(k)
+                if not isinstance(v, (int, float)):
+                    return False
+            return True
+
+        invalid = [i for i in issues_data if not _has_valid_coords(i)]
+        if invalid:
+            return jsonify({"error": f"Invalid or missing coordinates for {len(invalid)} issue(s)"}), 400
+
         # Read PDF bytes
         pdf_bytes = pdf_file.read()
         
@@ -285,14 +364,97 @@ def extract_text():
     except Exception as e:
         return jsonify({"error": f"Text extraction failed: {str(e)}"}), 500
 
+@app.route('/convert-to-images', methods=['POST'])
+def convert_to_images():
+    """
+    Convert PDF pages to high-quality images for GPT-5 vision analysis
+    
+    Expected form data:
+    - pdf: PDF file
+    - dpi: Optional DPI setting (default: 300)
+    - format: Optional image format (default: PNG)
+    """
+    try:
+        if 'pdf' not in request.files:
+            return jsonify({"error": "No PDF file provided"}), 400
+        
+        pdf_file = request.files['pdf']
+        pdf_bytes = pdf_file.read()
+        
+        # Get optional parameters
+        dpi = int(request.form.get('dpi', 300))  # High DPI for vision analysis
+        image_format = request.form.get('format', 'PNG').upper()
+        
+        # Open PDF with PyMuPDF
+        pdf_doc = fitz.open(stream=pdf_bytes)
+        images_data = []
+        
+        print(f"🖼️ Converting {len(pdf_doc)} pages to {image_format} images at {dpi} DPI...")
+        
+        for page_num in range(len(pdf_doc)):
+            page = pdf_doc[page_num]
+            
+            # Create high-quality pixmap for vision analysis
+            # Use matrix to scale for desired DPI
+            zoom = dpi / 72.0  # 72 DPI is default
+            matrix = fitz.Matrix(zoom, zoom)
+            
+            # Render page to pixmap
+            pixmap = page.get_pixmap(matrix=matrix, alpha=False)
+            
+            # Convert to bytes based on format
+            if image_format == 'PNG':
+                image_bytes = pixmap.tobytes("png")
+                mime_type = "image/png"
+            elif image_format == 'JPEG':
+                image_bytes = pixmap.tobytes("jpeg")
+                mime_type = "image/jpeg"
+            else:
+                # Default to PNG
+                image_bytes = pixmap.tobytes("png")
+                mime_type = "image/png"
+            
+            # Store image data
+            import base64
+            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            
+            images_data.append({
+                "pageNumber": page_num + 1,
+                "imageData": image_base64,
+                "mimeType": mime_type,
+                "width": pixmap.width,
+                "height": pixmap.height,
+                "dpi": dpi
+            })
+            
+            # Clean up pixmap
+            pixmap = None
+        
+        pdf_doc.close()
+        
+        print(f"✅ Converted {len(images_data)} pages to images for vision analysis")
+        
+        return jsonify({
+            'success': True,
+            'images': images_data,
+            'totalPages': len(images_data),
+            'dpi': dpi,
+            'format': image_format,
+            'message': f'Converted {len(images_data)} pages to {image_format} format'
+        })
+        
+    except Exception as e:
+        print(f"❌ Image conversion error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("🚀 Starting PyMuPDF Highlighting Server...")
-    print("📍 Server will run on http://localhost:5174")
+    print("📍 Server will run on http://localhost:5175")
     print("🎯 Ready for high-precision PDF highlighting!")
     
     app.run(
         host='0.0.0.0',
-        port=5174,
+        port=5175,
         debug=True,
         threaded=True
     )

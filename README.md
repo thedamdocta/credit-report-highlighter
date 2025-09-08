@@ -1,11 +1,26 @@
 # Credit Report PDF Highlighter with AI Analysis
 
-An advanced web application that analyzes credit reports using AI, identifies potential issues and FCRA violations, and provides interactive PDF highlighting with save functionality. Built with React, TypeScript, and cutting-edge PDF processing technology.
+An advanced web application that analyzes credit reports using AI, identifies potential issues and FCRA violations, and saves a real, highlighted PDF with permanent annotations. Built with React, TypeScript, GPT‑5 Vision, and PyMuPDF.
+
+## 🚨 CRITICAL: GPT-5 ONLY POLICY
+
+**This application EXCLUSIVELY uses GPT-5 models. NO GPT-4 models are permitted.**
+
+- ✅ **Vision Analysis**: GPT-5 Vision
+- ✅ **Text Analysis**: GPT-5
+- ❌ **GPT-4 Models**: FORBIDDEN
+
+**Validation Commands:**
+```bash
+npm run check-gpt4        # Check for GPT-4 references
+npm run validate-models   # Validate model configurations
+npm run audit-gpt5        # Complete GPT-5 audit
+```
 
 ## 🌟 Key Features
 
 ### AI-Powered Analysis
-- **GPT-4 Integration** for intelligent credit report analysis
+- **GPT-5 Vision Integration** for intelligent credit report analysis
 - **Late Chunking Technology** for context preservation across 120+ page documents
 - **Multiple Analysis Modes**:
   - Full comprehensive analysis
@@ -14,17 +29,14 @@ An advanced web application that analyzes credit reports using AI, identifies po
   - Dispute tracking
   - Custom analysis with user prompts
 
-### Advanced PDF Highlighting
-- **Three Highlighting Strategies**:
-  - **PyMuPDF**: Server-side permanent PDF modifications
-  - **Canvas Overlay**: Interactive client-side highlighting with tooltips
-  - **PDF.js Annotations**: Standard PDF annotations with XFDF export
-- **Intelligent Strategy Selection** based on document size and requirements
-- **Cross-Page Relationship Tracking** for linked issues
+### Advanced PDF Highlighting (PyMuPDF‑Only)
+- **PyMuPDF**: Server-side (or offline) permanent PDF annotations
+- **Strict Coordinates**: No fallbacks or approximations; failures surface immediately
+- **Yellow‑Only Policy**: All highlight types are rendered yellow in the saved PDF
+- **Cross-Page Relationship Support** via issue metadata
 
 ### Export Options
-- **Save Highlighted PDFs** with embedded annotations
-- **Multiple Export Formats**: PDF, JSON, XFDF
+- **Save Highlighted PDF** (PDF only) with embedded annotations
 - **Configurable Options**:
   - Bookmark generation for issues
   - Cross-page link indicators
@@ -92,8 +104,9 @@ npm run preview
 ### Core Technologies
 - **Frontend**: React 19 + TypeScript + Vite
 - **UI Components**: Tailwind CSS + Framer Motion
-- **PDF Processing**: PDF.js + pdf-lib
-- **AI Integration**: OpenAI GPT-4 API
+- **PDF Rendering (viewer)**: React‑PDF (PDF.js) for on‑screen viewing
+- **PDF Highlighting (output)**: PyMuPDF (server-side or offline)
+- **AI Integration**: OpenAI GPT‑5 Vision API
 - **State Management**: React Hooks
 
 ### Key Services
@@ -106,13 +119,10 @@ npm run preview
 - Hierarchical chunking with 128K token support
 ```
 
-#### Highlighting Services
+#### Highlighting Service
 ```typescript
-// Multi-strategy highlighting implementation
-- UnifiedHighlightService (orchestrator)
-- PyMuPDFHighlightService (server-side)
-- CanvasOverlayHighlightService (client-side)
-- PDFJSAnnotationHighlightService (annotations)
+// Single-strategy highlighting (PyMuPDF only)
+- PyMuPDFHighlightService (server-side/offline)
 ```
 
 #### AI Analysis
@@ -133,7 +143,7 @@ VITE_OPENAI_API_KEY=your-api-key-here
 ```
 
 ### Highlighting Configuration
-Customize highlighting behavior in `src/types/highlighting.ts`:
+Customize highlighting behavior in `src/types/highlighting.ts` (used for overlay/metadata; saved PDF annotations are yellow by policy):
 
 ```typescript
 export interface HighlightConfig {
@@ -162,9 +172,11 @@ credit-report-highlighter/
 │   │   └── EnhancedAnalysisWorkflow.tsx
 │   ├── services/           # Core services
 │   │   ├── aiAnalyzer.ts
+│   │   ├── gpt5VisionAnalyzer.ts
 │   │   ├── lateChunkingService.ts
 │   │   ├── coordinateMapper.ts
-│   │   └── unifiedHighlightService.ts
+│   │   └── pymuPdfHighlighter.ts
+│   ├── pymupdf_highlight_server.py  # Flask server for PyMuPDF (optional)
 │   ├── hooks/             # Custom React hooks
 │   │   └── usePDFSave.ts
 │   ├── types/             # TypeScript definitions
@@ -197,10 +209,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Built with assistance from Claude (Anthropic)
-- PDF.js by Mozilla for PDF rendering
-- pdf-lib for PDF manipulation
-- OpenAI for GPT-4 API
+- React‑PDF / PDF.js by Mozilla for on‑screen rendering
+- PyMuPDF for server/offline PDF annotation
+- OpenAI for GPT‑5 Vision API
 
 ## 📞 Support
 

@@ -58,13 +58,7 @@ export class CoordinateMapper {
       const textRegions = this.createTextMatchingRegions(issue, pageTokens.get(issue.pageNumber)!);
       regions.push(...textRegions);
     }
-    // Strategy 3: Fallback to page-level highlighting
-    else {
-      const fallbackRegion = this.createFallbackRegion(issue);
-      if (fallbackRegion) {
-        regions.push(fallbackRegion);
-      }
-    }
+    // No fallback regions allowed; if we cannot map precisely, return none
 
     return regions;
   }
@@ -130,28 +124,7 @@ export class CoordinateMapper {
     return regions;
   }
 
-  private createFallbackRegion(issue: EnhancedIssue): HighlightRegion | null {
-    return {
-      id: `${issue.id}-fallback`,
-      page: issue.pageNumber,
-      rect: {
-        x: 50,
-        y: 100,
-        width: 500,
-        height: 20
-      },
-      color: this.config.colors[issue.type],
-      opacity: this.config.opacity.default * 0.5,
-      type: 'highlight',
-      tooltip: this.createTooltip(issue) + ' (Approximate position)',
-      metadata: {
-        issueId: issue.id,
-        severity: issue.type,
-        category: issue.category,
-        relatedIssues: issue.crossPageLinks
-      }
-    };
-  }
+  // Fallback region removed: application must never approximate coordinates
 
   private groupTokensByLine(tokens: TextToken[]): TextToken[][] {
     const lines: TextToken[][] = [];

@@ -61,7 +61,7 @@ interface LateChunkingConfig {
   maxChunkSize: number;           // 2000 chars default
   overlapSize: number;            // 200 chars default
   embeddingModel: string;         // 'text-embedding-3-large'
-  analysisModel: string;          // 'gpt-4'
+  analysisModel: string;          // 'gpt-5'
   preserveContext: boolean;       // true
   enableCaching: boolean;         // true
   maxRetries: number;             // 3
@@ -396,7 +396,7 @@ const lateChunkingService = new LateChunkingService({
   maxChunkSize: 2000,              // Adjust chunk size
   overlapSize: 200,                // Control overlap amount
   embeddingModel: 'text-embedding-3-large', // Model selection
-  analysisModel: 'gpt-4',          // Analysis model
+  analysisModel: 'gpt-5',          // Analysis model (has built-in vision)
   preserveContext: true,           // Enable context preservation
   enableCaching: true,             // Performance optimization
   maxRetries: 3,                   // Reliability

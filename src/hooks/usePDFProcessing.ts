@@ -26,6 +26,7 @@ export function usePDFProcessing(): UsePDFProcessingResult {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus | null>(null);
   const [pdfDocument, setPdfDocument] = useState<PDFDocument | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ export function usePDFProcessing(): UsePDFProcessingResult {
     try {
       setIsProcessing(true);
       setError(null);
+      setPdfFile(file); // Store file for semantic mapping
       setProcessingStatus({
         status: 'processing',
         progress: 0,
@@ -100,7 +102,7 @@ export function usePDFProcessing(): UsePDFProcessingResult {
 
       // Perform AI analysis with late chunking support
       const useLateChunking = analysisType === 'late_chunking';
-      const result = await analyzer.analyzeCreditReport(pdfDocument, analysisType, customPrompt, useLateChunking);
+      const result = await analyzer.analyzeCreditReport(pdfDocument, analysisType, customPrompt, useLateChunking, undefined, pdfFile);
 
       setProcessingStatus({
         status: 'completed',
@@ -133,6 +135,7 @@ export function usePDFProcessing(): UsePDFProcessingResult {
     setIsAnalyzing(false);
     setProcessingStatus(null);
     setPdfDocument(null);
+    setPdfFile(null);
     setAnalysisResult(null);
     setError(null);
   }, []);

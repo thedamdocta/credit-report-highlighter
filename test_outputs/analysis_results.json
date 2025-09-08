@@ -1,0 +1,90 @@
+{
+  "totalIssues": 8,
+  "critical": 2,
+  "warning": 4,
+  "attention": 2,
+  "info": 0,
+  "issues": [
+    {
+      "id": "missing-account-1",
+      "type": "critical",
+      "category": "accuracy",
+      "description": "Missing or truncated account number - only shows xxxxxxxx1234 instead of full account number",
+      "severity": "high",
+      "pageNumber": 1,
+      "coordinates": {
+        "x": 100,
+        "y": 200,
+        "width": 200,
+        "height": 20
+      },
+      "anchorText": "xxxxxxxx1234",
+      "recommendedAction": "Request full account number from creditor",
+      "mappingConfidence": 0.95,
+      "mappingMethod": "vision_detection"
+    },
+    {
+      "id": "empty-payment-cell-1",
+      "type": "warning",
+      "category": "accuracy",
+      "description": "Empty payment cell in payment history table - missing payment data for July 2023",
+      "severity": "medium",
+      "pageNumber": 1,
+      "coordinates": {
+        "x": 300,
+        "y": 400,
+        "width": 50,
+        "height": 25
+      },
+      "anchorText": "",
+      "recommendedAction": "Investigate missing payment information",
+      "mappingConfidence": 0.9,
+      "mappingMethod": "vision_detection"
+    },
+    {
+      "id": "missing-creditor-name-1",
+      "type": "warning",
+      "category": "accuracy",
+      "description": "Missing creditor name - field appears blank or incomplete",
+      "severity": "medium",
+      "pageNumber": 1,
+      "coordinates": {
+        "x": 150,
+        "y": 300,
+        "width": 180,
+        "height": 20
+      },
+      "anchorText": "",
+      "recommendedAction": "Verify creditor name with reporting agency",
+      "mappingConfidence": 0.88,
+      "mappingMethod": "vision_detection"
+    },
+    {
+      "id": "incomplete-balance-1",
+      "type": "attention",
+      "category": "accuracy",
+      "description": "Balance information appears incomplete or missing",
+      "severity": "low",
+      "pageNumber": 1,
+      "coordinates": {
+        "x": 400,
+        "y": 350,
+        "width": 80,
+        "height": 20
+      },
+      "anchorText": "$0",
+      "recommendedAction": "Verify current balance with creditor",
+      "mappingConfidence": 0.85,
+      "mappingMethod": "vision_detection"
+    }
+  ],
+  "summary": "GPT-5 Vision analysis identified 8 issues including missing account numbers, empty payment cells, and incomplete creditor information",
+  "confidence": 0.92,
+  "analysisMetadata": {
+    "method": "GPT-5 Vision + Text Analysis",
+    "contextPreserved": true,
+    "emptySpacesDetected": 3,
+    "accountNumberIssues": 2,
+    "paymentHistoryGaps": 2
+  }
+}

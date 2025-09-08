@@ -13,7 +13,7 @@ import type {
   EnhancedIssue 
 } from '../types/highlighting';
 import { CreditAnalyzer } from '../services/aiAnalyzer';
-import { UnifiedHighlightService } from '../services/unifiedHighlightService';
+import { PyMuPDFHighlightService } from '../services/pymuPdfHighlighter';
 import { AnalysisResultsWithSave } from './AnalysisResultsWithSave';
 import { extractTextFromPDF } from '../utils/pdfParser';
 
@@ -51,7 +51,7 @@ export const EnhancedAnalysisWorkflow: React.FC<EnhancedAnalysisWorkflowProps> =
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analyzer = useRef(new CreditAnalyzer());
-  const highlightService = useRef(new UnifiedHighlightService());
+  const highlightService = useRef(new PyMuPDFHighlightService());
 
   const analysisSteps: AnalysisStep[] = [
     {
@@ -163,13 +163,7 @@ export const EnhancedAnalysisWorkflow: React.FC<EnhancedAnalysisWorkflowProps> =
 
       const highlightingResult = await highlightService.current.highlightIssues(
         selectedFile,
-        enhancedIssues,
-        undefined, // Use default config
-        {
-          mode: 'auto', // Let the system choose the best strategy
-          enableCrossPageLinks: true,
-          exportFormat: 'pdf' // Enable PDF export by default
-        }
+        enhancedIssues
       );
 
       updateStep('highlight', { status: 'completed', progress: 100 });

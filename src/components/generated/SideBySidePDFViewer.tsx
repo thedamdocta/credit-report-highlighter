@@ -39,11 +39,13 @@ export const SideBySidePDFViewer = ({
 }: SideBySidePDFViewerProps) => {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [zoomLevel, setZoomLevel] = useState(60); // Smaller default zoom for side-by-side
-  const [displayZoom, setDisplayZoom] = useState(75);
+  const [zoomLevel, setZoomLevel] = useState(75); // Exact same as SimplePDFViewer - no changes
+  const [displayZoom, setDisplayZoom] = useState(100);
   const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pageWidthPt, setPageWidthPt] = useState<number>(595);
+  const [pageHeightPt, setPageHeightPt] = useState<number>(842);
 
   // Reset state when files change
   useEffect(() => {
@@ -217,11 +219,11 @@ export const SideBySidePDFViewer = ({
       </div>
 
       {/* Side-by-side PDF Content Area */}
-      <div className="flex-1 overflow-y-auto bg-gray-100 relative">
-        <div className="absolute inset-0 flex justify-center p-4 pb-96 overflow-y-auto">
-          <div className="flex gap-6 w-full max-w-none">
+      <div className="flex-1 overflow-y-auto bg-gray-100">
+        <div className="flex justify-center p-4 min-h-full">
+          <div className="flex gap-6 justify-center">
             {/* Original PDF */}
-            <div className="flex-1 min-w-0">
+            <div className="w-auto flex-shrink-0">
               <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">Original Report</h3>
               <motion.div 
                 initial={{ opacity: 0 }} 
@@ -257,6 +259,13 @@ export const SideBySidePDFViewer = ({
                     <Page
                       pageNumber={pageNumber}
                       scale={zoomLevel / 100}
+                      onLoadSuccess={(page: any) => {
+                        try {
+                          const vp = page.getViewport({ scale: 1 });
+                          setPageWidthPt(vp.width);
+                          setPageHeightPt(vp.height);
+                        } catch {}
+                      }}
                       loading={
                         <div className="flex items-center justify-center p-8 min-w-[300px] min-h-[400px]">
                           <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -271,7 +280,7 @@ export const SideBySidePDFViewer = ({
             </div>
 
             {/* Highlighted PDF */}
-            <div className="flex-1 min-w-0">
+            <div className="w-auto flex-shrink-0">
               <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">AI Analysis Results</h3>
               <motion.div 
                 initial={{ opacity: 0 }} 
@@ -297,6 +306,13 @@ export const SideBySidePDFViewer = ({
                     <Page
                       pageNumber={pageNumber}
                       scale={zoomLevel / 100}
+                      onLoadSuccess={(page: any) => {
+                        try {
+                          const vp = page.getViewport({ scale: 1 });
+                          setPageWidthPt(vp.width);
+                          setPageHeightPt(vp.height);
+                        } catch {}
+                      }}
                       loading={
                         <div className="flex items-center justify-center p-8 min-w-[300px] min-h-[400px]">
                           <Loader2 className="w-6 h-6 text-green-600 animate-spin" />

@@ -1,6 +1,7 @@
 // Enhanced Credit Report Analyzer with Late Chunking and Comprehensive Error Detection
 import type { PDFDocument, AnalysisResult, CreditIssue } from '../types/creditReport';
 import { getOpenAIKey } from '../settings/openai';
+import { SemanticTextMapper, type SemanticIssue } from './semanticTextMapper';
 
 interface CreditReportSection {
   type: 'personal_info' | 'account_summary' | 'payment_history' | 'collections' | 'inquiries' | 'disputes' | 'public_records';
@@ -28,6 +29,7 @@ interface HighlightableIssue extends CreditIssue {
 export class EnhancedCreditAnalyzer {
   private apiKey: string;
   private baseUrl = 'https://api.openai.com/v1';
+  private semanticMapper: SemanticTextMapper;
   
   // Validation rules for credit report fields
   private readonly validationRules: ValidationRule[] = [
@@ -84,9 +86,10 @@ export class EnhancedCreditAnalyzer {
 
   constructor() {
     this.apiKey = getOpenAIKey() || '';
+    this.semanticMapper = new SemanticTextMapper();
   }
 
-  async analyzeWithLateChunking(pdfDocument: PDFDocument): Promise<AnalysisResult> {
+  async analyzeWithLateChunking(pdfDocument: PDFDocument, pdfFile?: File): Promise<AnalysisResult> {
     console.log('🚀 Starting Enhanced Credit Report Analysis with Late Chunking');
     
     // Step 1: Extract and structure the document
@@ -113,8 +116,8 @@ export class EnhancedCreditAnalyzer {
       inconsistencyIssues
     );
     
-    // Step 7: Map issues to specific text locations for highlighting
-    const highlightableIssues = this.mapIssuesToTextLocations(allIssues, pdfDocument);
+    // Step 7: Map issues to specific text locations for highlighting using semantic mapping
+    const highlightableIssues = await this.mapIssuesToTextLocations(allIssues, pdfDocument, pdfFile);
     
     return {
       ...gptAnalysis,
@@ -440,76 +443,112 @@ Return ONLY valid JSON with this structure:
     return uniqueIssues;
   }
 
-  private mapIssuesToTextLocations(
+  private async mapIssuesToTextLocations(
     issues: HighlightableIssue[],
-    pdfDocument: PDFDocument
-  ): CreditIssue[] {
-    const mappedIssues: CreditIssue[] = [];
+    pdfDocument: PDFDocument,
+    pdfFile?: File
+  ): Promise<CreditIssue[]> {
+    console.log('🎯 Starting semantic text mapping for precise coordinate extraction...');
     
-    for (const issue of issues) {
-      // Find the exact location in the PDF
-      const location = this.findTextLocation(
-        issue.textToHighlight || issue.searchPattern,
-        pdfDocument,
-        issue.pageNumber
-      );
-      
-      if (location) {
-        mappedIssues.push({
-          ...issue,
-          id: issue.id || `issue-${Date.now()}-${Math.random()}`,
-          coordinates: location,
-          anchorText: issue.textToHighlight?.substring(0, 120) || issue.searchPattern
-        });
-      } else {
-        // Still include the issue even if we can't find exact coordinates
-        mappedIssues.push({
-          ...issue,
-          id: issue.id || `issue-${Date.now()}-${Math.random()}`,
-          anchorText: issue.textToHighlight?.substring(0, 120) || issue.searchPattern
-        });
+    // If we have the PDF file, extract precise coordinates using PyMuPDF
+    if (pdfFile) {
+      try {
+        await this.semanticMapper.extractPDFTextCoordinates(pdfFile);
+        console.log('✅ PDF text coordinates extracted successfully');
+      } catch (error) {
+        console.warn('⚠️ Failed to extract PDF coordinates, using fallback:', error);
       }
     }
     
-    return mappedIssues;
+    // Convert HighlightableIssues to SemanticIssues
+    const semanticIssues: SemanticIssue[] = issues.map(issue => ({
+      id: issue.id || `issue-${Date.now()}-${Math.random()}`,
+      type: issue.type,
+      description: issue.description,
+      semanticContext: issue.description, // Use description as semantic context
+      targetText: issue.textToHighlight || issue.searchPattern,
+      expectedLocation: 'near', // Default expectation
+      contextClues: this.extractContextClues(issue),
+      pageHint: issue.pageNumber
+    }));
+    
+    // Use semantic mapper to find precise coordinates
+    const mappedHighlights = this.semanticMapper.mapSemanticIssuesToCoordinates(semanticIssues);
+    console.log(`🎯 Mapped ${mappedHighlights.length}/${issues.length} issues to precise coordinates`);
+    
+    // Convert back to CreditIssue format
+    const creditIssues: CreditIssue[] = mappedHighlights.map(highlight => ({
+      id: highlight.id,
+      type: highlight.type,
+      category: issues.find(i => i.id === highlight.id)?.category || 'other',
+      description: highlight.description,
+      severity: issues.find(i => i.id === highlight.id)?.severity || 'medium',
+      pageNumber: highlight.page,
+      coordinates: highlight.coordinates,
+      anchorText: highlight.anchorText,
+      fcraSection: issues.find(i => i.id === highlight.id)?.fcraSection,
+      recommendedAction: issues.find(i => i.id === highlight.id)?.recommendedAction,
+      mappingConfidence: highlight.confidence,
+      mappingMethod: highlight.mappingMethod
+    }));
+    
+    // Do NOT add unmapped issues - only show issues with 100% accurate coordinates
+    const unmappedCount = issues.length - creditIssues.length;
+    if (unmappedCount > 0) {
+      console.log(`🎯 Filtered out ${unmappedCount} issues without exact coordinate matches for 100% accuracy`);
+    }
+    
+    return creditIssues;
   }
 
-  private findTextLocation(
-    searchText: string,
-    pdfDocument: PDFDocument,
-    pageHint?: number
-  ): { x: number; y: number; width: number; height: number } | null {
-    if (!searchText) return null;
+  /**
+   * Extract context clues from an issue for semantic mapping
+   */
+  private extractContextClues(issue: HighlightableIssue): string[] {
+    const clues: string[] = [];
     
-    const pagesToSearch = pageHint 
-      ? [pdfDocument.pages.find(p => p.pageNumber === pageHint)]
-      : pdfDocument.pages;
+    // Extract key terms from description
+    const description = issue.description.toLowerCase();
+    const descriptionWords = description.split(/\s+/).filter(word => word.length > 3);
     
-    for (const page of pagesToSearch) {
-      if (!page) continue;
-      
-      // Simple text search - in production, use actual PDF text positioning
-      const pageText = page.text.toLowerCase();
-      const searchLower = searchText.toLowerCase();
-      const index = pageText.indexOf(searchLower);
-      
-      if (index >= 0) {
-        // Calculate approximate position based on text index
-        // This is simplified - real implementation would use PDF text tokens
-        const linesBeforeMatch = pageText.substring(0, index).split('\n').length;
-        const y = Math.min(750, linesBeforeMatch * 12); // Approximate line height
-        
-        return {
-          x: 50, // Default left margin
-          y: y,
-          width: Math.min(500, searchText.length * 7), // Approximate character width
-          height: 20 // Default line height
-        };
-      }
+    // Add specific field-related keywords
+    if (issue.category === 'missing_data' || description.includes('account')) {
+      clues.push('account', 'number', 'name');
     }
     
-    return null;
+    if (description.includes('payment')) {
+      clues.push('payment', 'history', 'status');
+    }
+    
+    if (description.includes('balance')) {
+      clues.push('balance', 'amount');
+    }
+    
+    // Add context from before/after text
+    if (issue.contextBefore) {
+      const beforeWords = issue.contextBefore.toLowerCase().split(/\s+/)
+        .filter(word => word.length > 3 && !/^\d+$/.test(word));
+      clues.push(...beforeWords.slice(-3)); // Last 3 meaningful words
+    }
+    
+    if (issue.contextAfter) {
+      const afterWords = issue.contextAfter.toLowerCase().split(/\s+/)
+        .filter(word => word.length > 3 && !/^\d+$/.test(word));
+      clues.push(...afterWords.slice(0, 3)); // First 3 meaningful words
+    }
+    
+    // Add meaningful words from the search pattern
+    if (issue.searchPattern) {
+      const patternWords = issue.searchPattern.toLowerCase().split(/\s+/)
+        .filter(word => word.length > 2 && !/^\d+$/.test(word));
+      clues.push(...patternWords);
+    }
+    
+    // Remove duplicates and return
+    return [...new Set(clues)].slice(0, 8); // Limit to 8 most relevant clues
   }
+
+  // Note: findTextLocation method removed - replaced by SemanticTextMapper for precise coordinate extraction
 
   private extractFullText(pdfDocument: PDFDocument): string {
     return pdfDocument.pages

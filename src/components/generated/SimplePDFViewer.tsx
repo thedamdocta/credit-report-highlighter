@@ -40,6 +40,8 @@ export const SimplePDFViewer = ({
   const [selectedHighlight, setSelectedHighlight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pageWidthPt, setPageWidthPt] = useState<number>(595);
+  const [pageHeightPt, setPageHeightPt] = useState<number>(842);
 
   // Reset state when file changes
   useEffect(() => {
@@ -251,6 +253,13 @@ export const SimplePDFViewer = ({
                   <Page
                     pageNumber={pageNumber}
                     scale={zoomLevel / 100}
+                    onLoadSuccess={(page: any) => {
+                      try {
+                        const vp = page.getViewport({ scale: 1 });
+                        setPageWidthPt(vp.width);
+                        setPageHeightPt(vp.height);
+                      } catch {}
+                    }}
                     loading={
                       <div className="flex items-center justify-center p-8 min-w-[400px] min-h-[500px]">
                         <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -272,10 +281,10 @@ export const SimplePDFViewer = ({
                       animate={{ opacity: 1 }} 
                       className={`absolute cursor-pointer transition-all duration-200 pointer-events-auto ${getHighlightColor(highlight.type)} ${selectedHighlight === highlight.id ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`} 
                       style={{
-                        left: `${(highlight.x / 595) * 100}%`,
-                        top: `${(highlight.y / 842) * 100}%`,
-                        width: `${(highlight.width / 595) * 100}%`,
-                        height: `${(highlight.height / 842) * 100}%`,
+                        left: `${(highlight.x / pageWidthPt) * 100}%`,
+                        top: `${(highlight.y / pageHeightPt) * 100}%`,
+                        width: `${(highlight.width / pageWidthPt) * 100}%`,
+                        height: `${(highlight.height / pageHeightPt) * 100}%`,
                       }} 
                       onClick={() => setSelectedHighlight(highlight.id)} 
                       onMouseEnter={() => setSelectedHighlight(highlight.id)} 
@@ -286,8 +295,8 @@ export const SimplePDFViewer = ({
               )}
               </motion.div>
 
-            {/* Analysis Loading Overlay */}
-            <AnimatePresence>
+            {/* Analysis Loading Overlay - Replaced by DetailedProgressIndicator */}
+            {/* <AnimatePresence>
               {isAnalyzing && (
                 <motion.div 
                   initial={{ opacity: 0 }} 
@@ -301,7 +310,7 @@ export const SimplePDFViewer = ({
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </AnimatePresence> */}
           </div>
         </div>
       </div>

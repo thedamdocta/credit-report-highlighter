@@ -6,8 +6,8 @@ import type { HighlightingResult } from '../types/highlighting';
 
 export interface PDFSaveOptions {
   includeHighlights: boolean;
-  highlightStrategy: 'pymupdf' | 'canvas' | 'pdfjs';
-  exportFormat: 'pdf' | 'json' | 'xfdf';
+  highlightStrategy: 'pymupdf';
+  exportFormat: 'pdf';
   includeCrossPageLinks: boolean;
   addBookmarks: boolean;
   filename?: string;
@@ -70,18 +70,7 @@ export const PDFSaveOptionsModal: React.FC<PDFSaveOptionsModalProps> = ({
     }));
   };
 
-  const getStrategyDescription = (strategy: string) => {
-    switch (strategy) {
-      case 'pymupdf':
-        return 'Creates permanent highlights in the PDF file. Best for sharing and archiving.';
-      case 'canvas':
-        return 'Interactive overlay highlights. Good for review and analysis.';
-      case 'pdfjs':
-        return 'Standard PDF annotations. Compatible with most PDF viewers.';
-      default:
-        return '';
-    }
-  };
+  const getStrategyDescription = () => 'Creates permanent highlights in the PDF file. Best for sharing and archiving.';
 
   const getFormatDescription = (format: string) => {
     switch (format) {
@@ -172,80 +161,33 @@ export const PDFSaveOptionsModal: React.FC<PDFSaveOptionsModalProps> = ({
                 />
               </div>
 
-              {/* Highlight Strategy */}
+              {/* Highlight Strategy (fixed to PyMuPDF) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Highlight Strategy
                 </label>
-                <div className="space-y-3">
-                  {(['pymupdf', 'canvas', 'pdfjs'] as const).map((strategy) => (
-                    <div key={strategy} className="flex items-start space-x-3">
-                      <input
-                        type="radio"
-                        id={`strategy-${strategy}`}
-                        name="strategy"
-                        value={strategy}
-                        checked={saveOptions.highlightStrategy === strategy}
-                        onChange={(e) => updateOption('highlightStrategy', e.target.value as any)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <label
-                          htmlFor={`strategy-${strategy}`}
-                          className="text-sm font-medium text-gray-900 cursor-pointer"
-                        >
-                          {strategy.toUpperCase()}
-                          {strategy === 'pymupdf' && (
-                            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                              Recommended for PDF
-                            </span>
-                          )}
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {getStrategyDescription(strategy)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-start space-x-3">
+                  <input type="radio" checked readOnly className="mt-1" />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-900">PYMUPDF</span>
+                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Recommended</span>
+                    <p className="text-xs text-gray-500 mt-1">{getStrategyDescription()}</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Export Format */}
+              {/* Export Format (fixed to PDF) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Export Format
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['pdf', 'json', 'xfdf'] as const).map((format) => (
-                    <div key={format} className="relative">
-                      <input
-                        type="radio"
-                        id={`format-${format}`}
-                        name="format"
-                        value={format}
-                        checked={saveOptions.exportFormat === format}
-                        onChange={(e) => updateOption('exportFormat', e.target.value as any)}
-                        className="sr-only"
-                      />
-                      <label
-                        htmlFor={`format-${format}`}
-                        className={`
-                          block p-3 border-2 rounded-lg cursor-pointer text-center transition-all
-                          ${saveOptions.exportFormat === format
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
-                          }
-                        `}
-                      >
-                        <div className="font-medium text-sm">
-                          {format.toUpperCase()}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {getFormatDescription(format)}
-                        </div>
-                      </label>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="relative">
+                    <label className="block p-3 border-2 rounded-lg text-center bg-blue-50 border-blue-500 text-blue-700">
+                      <div className="font-medium text-sm">PDF</div>
+                      <div className="text-xs text-gray-500 mt-1">Complete PDF with embedded highlights</div>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -298,10 +240,7 @@ export const PDFSaveOptionsModal: React.FC<PDFSaveOptionsModalProps> = ({
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <FileText className="w-4 h-4" />
-                <span>
-                  {saveOptions.exportFormat === 'pdf' ? 'PDF Document' : 
-                   saveOptions.exportFormat === 'json' ? 'JSON Data' : 'XFDF Annotations'}
-                </span>
+                <span>PDF Document</span>
               </div>
               
               <div className="flex items-center space-x-3">

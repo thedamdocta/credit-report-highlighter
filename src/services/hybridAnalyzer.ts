@@ -453,7 +453,7 @@ Return ONLY valid JSON with this structure:
   public getModelInfo() {
     return {
       chunkingModel: 'Gemini 1.5 Pro (1M context)',
-      analysisModel: 'OpenAI GPT-4',
+      analysisModel: 'OpenAI GPT-5 Vision',
       method: 'Hybrid Analysis',
       capabilities: [
         'Intelligent context-aware chunking with Gemini',

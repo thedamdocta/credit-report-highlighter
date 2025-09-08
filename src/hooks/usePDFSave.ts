@@ -1,7 +1,7 @@
 // React hook for managing PDF save functionality
 import { useState, useCallback } from 'react';
 import type { HighlightingResult, EnhancedIssue } from '../types/highlighting';
-import { UnifiedHighlightService } from '../services/unifiedHighlightService';
+import { PyMuPDFHighlightService } from '../services/pymuPdfHighlighter';
 import type { PDFSaveOptions } from '../components/PDFSaveOptionsModal';
 
 interface UsePDFSaveResult {
@@ -30,19 +30,16 @@ export const usePDFSave = (): UsePDFSaveResult => {
     setProgress(0);
 
     try {
-      const highlightService = new UnifiedHighlightService();
+      const highlightService = new PyMuPDFHighlightService();
       
       // Step 1: Generate highlights with specified strategy
       setProgress(25);
+      if (options.exportFormat && options.exportFormat !== 'pdf') {
+        throw new Error('Only PDF export is supported in the current configuration');
+      }
       const highlightResult = await highlightService.highlightIssues(
         pdfFile,
-        issues,
-        undefined, // Use default config
-        {
-          mode: options.highlightStrategy,
-          enableCrossPageLinks: options.includeCrossPageLinks,
-          exportFormat: options.exportFormat
-        }
+        issues
       );
 
       if (!highlightResult.success) {
@@ -56,53 +53,24 @@ export const usePDFSave = (): UsePDFSaveResult => {
       let mimeType: string;
       let fileExtension: string;
 
-      if (options.exportFormat === 'pdf') {
+      if (options.exportFormat === 'pdf' || !options.exportFormat) {
         // For PDF export, we need the highlighted PDF file
         if (highlightResult.highlightedFile) {
           exportBlob = highlightResult.highlightedFile;
           mimeType = 'application/pdf';
           fileExtension = '.pdf';
         } else {
-          // If no highlighted PDF available, create one using PyMuPDF
-          setProgress(60);
-          const pdfResult = await highlightService.createExportableHighlights(
-            pdfFile,
-            issues
-          );
-          
-          if (!pdfResult.success || !pdfResult.highlightedFile) {
-            throw new Error('Failed to create exportable PDF');
-          }
-          
-          exportBlob = pdfResult.highlightedFile;
-          mimeType = 'application/pdf';
-          fileExtension = '.pdf';
+          throw new Error('Failed to create highlighted PDF');
         }
       } else {
-        // For other formats, use the export method
-        setProgress(70);
-        exportBlob = await highlightService.exportHighlights(
-          highlightResult,
-          options.exportFormat
-        );
-        
-        if (options.exportFormat === 'json') {
-          mimeType = 'application/json';
-          fileExtension = '.json';
-        } else if (options.exportFormat === 'xfdf') {
-          mimeType = 'application/xml';
-          fileExtension = '.xfdf';
-        } else {
-          mimeType = 'application/octet-stream';
-          fileExtension = '.dat';
-        }
+        throw new Error('Only PDF export is supported');
       }
 
       setProgress(90);
 
       // Step 3: Trigger download
       const filename = options.filename || 
-        `${pdfFile.name.replace('.pdf', '')}_analyzed${fileExtension}`;
+        `${pdfFile.name.replace('.pdf', '')}_analyzed${fileExtension || '.pdf'}`;
       
       await downloadBlob(exportBlob, filename, mimeType);
       
@@ -177,45 +145,21 @@ export const useBatchPDFSave = () => {
     setCompletedCount(0);
 
     try {
-      const highlightService = new UnifiedHighlightService();
-      
+      const highlightService = new PyMuPDFHighlightService();
       for (let i = 0; i < files.length; i++) {
         const { pdfFile, issues, options } = files[i];
-        
-        // Process each file
-        const highlightResult = await highlightService.highlightIssues(
-          pdfFile,
-          issues,
-          undefined,
-          {
-            mode: options.highlightStrategy,
-            enableCrossPageLinks: options.includeCrossPageLinks,
-            exportFormat: options.exportFormat
-          }
-        );
-
-        if (highlightResult.success) {
-          const exportBlob = options.exportFormat === 'pdf' && highlightResult.highlightedFile
-            ? highlightResult.highlightedFile
-            : await highlightService.exportHighlights(highlightResult, options.exportFormat);
-
-          const filename = options.filename || 
-            `${pdfFile.name.replace('.pdf', '')}_analyzed.${options.exportFormat}`;
-          
-          const mimeType = options.exportFormat === 'pdf' 
-            ? 'application/pdf'
-            : options.exportFormat === 'json'
-            ? 'application/json'
-            : 'application/xml';
-
-          await downloadBlob(exportBlob, filename, mimeType);
+        if (options.exportFormat && options.exportFormat !== 'pdf') {
+          throw new Error('Only PDF export is supported in batch mode');
         }
-
+        const result = await highlightService.highlightIssues(pdfFile, issues);
+        if (!result.success || !result.highlightedFile) {
+          throw new Error('Failed to create highlighted PDF');
+        }
+        const filename = options.filename || `${pdfFile.name.replace('.pdf','')}_analyzed.pdf`;
+        await downloadBlob(result.highlightedFile, filename, 'application/pdf');
         setCompletedCount(i + 1);
         setProgress(((i + 1) / files.length) * 100);
       }
-
-      highlightService.cleanup();
       
     } catch (err) {
       console.error('Batch PDF save error:', err);

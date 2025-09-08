@@ -1,0 +1,6 @@
+🚀 Starting PyMuPDF Highlighting Server...
+📍 Server will run on http://localhost:5175
+🎯 Ready for high-precision PDF highlighting!
+ * Serving Flask app 'pymupdf_highlight_server'
+ * Debug mode: on
+Operation not permitted
