@@ -24,6 +24,20 @@ def test_real_gpt5_vision():
     output_dir = "real_test_outputs"
     backend_url = "http://localhost:5175"
     
+    # Step 0: Health check for PyMuPDF server
+    print("\n0️⃣ Checking PyMuPDF Server Health...")
+    try:
+        health_response = requests.get(f"{backend_url}/health", timeout=2)
+        if health_response.status_code == 200:
+            print(f"✅ PyMuPDF server is healthy at {backend_url}")
+        else:
+            print(f"⚠️ PyMuPDF server returned status {health_response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ CRITICAL: PyMuPDF server unreachable at {backend_url}")
+        print(f"❌ Error: {e}")
+        print("Please start the server: python3 pymupdf_highlight_server.py")
+        return False
+    
     # GPT-5 API configuration
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     if not OPENAI_API_KEY:
@@ -81,8 +95,8 @@ def test_real_gpt5_vision():
     
     real_issues = []
     
-    # Analyze first 3 pages with actual GPT-5's vision capabilities
-    for page_num in range(1, min(4, len(images) + 1)):
+    # Analyze ALL pages with actual GPT-5's vision capabilities
+    for page_num in range(1, len(images) + 1):
         print(f"\n🔍 Analyzing page {page_num} with GPT-5...")
         
         try:
@@ -91,19 +105,47 @@ def test_real_gpt5_vision():
             image_b64 = page_image['imageData']
             
             # Create GPT-5 prompt for vision analysis
-            prompt_template = Template("""You are an expert credit report analyst. Analyze this credit report page $page_num image carefully.
+            prompt_template = Template("""You are an expert credit report analyst. Analyze this credit report page $page_num image EXHAUSTIVELY.
 
-Look for these SPECIFIC issues:
-1. Missing or truncated account numbers (like xxxxxxxx1234 or incomplete numbers)
-2. Empty cells in payment history tables where payment data should exist
-3. Missing creditor names or account names
-4. Blank fields where information should be present
-5. Incomplete balance information
+FIND AND HIGHLIGHT ALL OF THESE ISSUES:
 
-For EACH issue you find, provide:
-- Exact pixel coordinates (x, y, width, height) where the problem is located
-- Clear description of what is missing or incomplete
-- The text that should be there (if any)
+1. ACCOUNT ISSUES:
+   - Truncated account numbers (XXXX1234, ****1234) - FCRA VIOLATION
+   - Duplicate accounts
+   - Closed accounts with recent activity
+   - Accounts over 7 years old
+   - Any disputed accounts
+
+2. PAYMENT HISTORY - HIGHLIGHT ALL:
+   - EVERY late payment (30, 60, 90, 120+ days)
+   - ANY empty cells in payment grids
+   - Collection markers (C, CO, COL)
+   - Charge-offs (CO)
+   - ANY status that isn't "OK" or "Paid as agreed"
+
+3. NEGATIVE ITEMS:
+   - Collections
+   - Charge-offs
+   - Bankruptcies
+   - Foreclosures
+   - Repossessions
+   - Settlements
+   - Public records
+
+4. DATA ERRORS:
+   - Missing information (blank fields, N/A, dashes)
+   - Incorrect balances
+   - Wrong dates
+   - Incomplete addresses
+   - Name variations
+
+5. CREDIT ISSUES:
+   - High utilization (>30% balance/limit)
+   - Over-limit accounts
+   - Multiple inquiries
+   - Unauthorized inquiries
+
+IMPORTANT: Be EXHAUSTIVE - highlight EVERY issue, error, negative item, or questionable data point
 
 Return ONLY valid JSON in this format:
 {
@@ -216,7 +258,7 @@ Be very precise with coordinates. Only report issues you can actually see in the
         "summary": f"Real GPT-5 analysis found {len(real_issues)} actual issues",
         "confidence": 0.95,
         "method": "Real GPT-5 API with Vision",
-        "pagesAnalyzed": min(3, len(images))
+        "pagesAnalyzed": len(images)
     }
     
     with open(f"{output_dir}/real_analysis_results.json", 'w') as f:

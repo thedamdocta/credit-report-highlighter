@@ -82,9 +82,20 @@ export class GPT5VisionAnalyzer {
       // Initialize cost tracking
       this.costTracker.initializeTracking(pdfDocument.totalPages);
       
+      progressCallback?.('Extracting text with coordinates...');
+      
+      // Step 1: Extract text with coordinates (multi-pass foundation)
+      let textData: Awaited<ReturnType<typeof this.extractTextWithCoordinates>> = null;
+      if (pdfFile) {
+        textData = await this.extractTextWithCoordinates(pdfFile);
+        if (textData) {
+          console.log(`📝 Extracted text from ${textData.pages.length} pages`);
+        }
+      }
+      
       progressCallback?.('Extracting images from PDF...');
       
-      // Step 1: Convert PDF to images
+      // Step 2: Convert PDF to images
       let images: Array<{
         pageNumber: number;
         imageData: string;
@@ -141,6 +152,90 @@ export class GPT5VisionAnalyzer {
         newError.stack = `${newError.stack}\nCaused by:\n${stack}`;
       }
       throw newError;
+    }
+  }
+
+  /**
+   * Extract text with coordinates from PDF for multi-pass analysis
+   */
+  private async extractTextWithCoordinates(pdfFile: File): Promise<{
+    pages: Array<{
+      pageNumber: number;
+      tokens: Array<{
+        text: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        fontName?: string;
+        fontSize?: number;
+      }>;
+      labels: string[];
+    }>;
+  } | null> {
+    try {
+      await serverHealthMonitor.ensureServerAvailable();
+      const formData = new FormData();
+      formData.append('pdf', pdfFile);
+      
+      const response = await fetch(`${API_CONFIG.PYMUPDF_SERVER_URL}/extract-text-coordinates`, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        console.error('Text extraction failed:', response.status);
+        return null;
+      }
+      
+      const data = await response.json();
+      const textTokens = data.textTokens || [];
+      
+      // Group tokens by page and extract labels
+      const pageMap = new Map<number, any>();
+      
+      for (const token of textTokens) {
+        const pageNum = token.page || 1;
+        if (!pageMap.has(pageNum)) {
+          pageMap.set(pageNum, {
+            pageNumber: pageNum,
+            tokens: [],
+            labels: []
+          });
+        }
+        
+        const page = pageMap.get(pageNum);
+        page.tokens.push({
+          text: token.text,
+          x: token.x,
+          y: token.y,
+          width: token.width,
+          height: token.height,
+          fontName: token.fontName,
+          fontSize: token.fontSize
+        });
+        
+        // Extract labels (headers, account names, etc.)
+        const text = token.text?.trim() || '';
+        if (text.length > 3 && text.length < 100) {
+          const keywords = ['ACCOUNT', 'PAYMENT', 'BALANCE', 'CREDIT', 'HISTORY', 'STATUS', 'DATE'];
+          if (keywords.some(keyword => text.toUpperCase().includes(keyword))) {
+            if (!page.labels.includes(text)) {
+              page.labels.push(text);
+            }
+          }
+        }
+      }
+      
+      return {
+        pages: Array.from(pageMap.values()).sort((a, b) => a.pageNumber - b.pageNumber)
+      };
+      
+    } catch (error) {
+      console.error('Text extraction error:', error);
+      return null;
     }
   }
 
@@ -243,42 +338,7 @@ export class GPT5VisionAnalyzer {
     }
   }
 
-  /**
-   * Create smart chunks based on account boundaries and context preservation
-   */
-  private createSmartChunks(
-    pdfDocument: PDFDocument, 
-    images: Array<{pageNumber: number; imageData: string; mimeType: string}>
-  ): VisionAnalysisChunk[] {
-    const chunks: VisionAnalysisChunk[] = [];
-    const pagesPerChunk = 4; // Target 4 pages per chunk to manage token limits
-    
-    for (let i = 0; i < pdfDocument.pages.length; i += pagesPerChunk) {
-      const startPage = i;
-      const endPage = Math.min(i + pagesPerChunk - 1, pdfDocument.pages.length - 1);
-      
-      // Get text content for this chunk
-      const chunkPages = pdfDocument.pages.slice(startPage, endPage + 1);
-      const textContent = chunkPages
-        .map(page => `Page ${page.pageNumber}:\n${page.text}`)
-        .join('\n\n');
-      
-      // Get corresponding images
-      const chunkImages = images.filter(img => 
-        img.pageNumber >= startPage + 1 && img.pageNumber <= endPage + 1
-      );
-      
-      chunks.push({
-        chunkIndex: chunks.length,
-        pageRange: { start: startPage + 1, end: endPage + 1 },
-        textContent,
-        images: chunkImages
-      });
-    }
-    
-    console.log(`📝 Created ${chunks.length} smart chunks for processing`);
-    return chunks;
-  }
+  // Smart chunking functionality has been merged into createDynamicChunks
 
   /**
    * Create dynamic chunks that respect an approximate token budget.
@@ -336,6 +396,13 @@ export class GPT5VisionAnalyzer {
     chunk: VisionAnalysisChunk,
     previousContext: string
   ): Promise<VisionAnalysisResult> {
+    // Create a summary logger to reduce console spam
+    const logSummary = {
+      chunkIndex: chunk.chunkIndex,
+      pages: chunk.pageRange,
+      imagesCount: chunk.images.length,
+      startTime: Date.now()
+    };
     // Interleave page labels with images to help the model attribute coordinates to correct pages
     const labeledImageContents = chunk.images.flatMap(img => {
       const w = img.width || 'unknown';
@@ -403,41 +470,74 @@ Always respond with valid JSON only.`
   }
 
   /**
-   * Create vision analysis prompt for GPT-5
+   * Create enhanced vision analysis prompt for GPT-5 with strict requirements
    */
   private createVisionAnalysisPrompt(chunk: VisionAnalysisChunk, previousContext: string): string {
     return `You are an expert credit report analyst with advanced vision capabilities. Analyze pages ${chunk.pageRange.start}-${chunk.pageRange.end} of this credit report image carefully.
 
 ${previousContext ? `Previous context: ${previousContext}` : ''}
 
-CRITICAL MISSION: Look for ACTUAL missing information in the credit report that would be legally significant:
+ANALYZE THIS CREDIT REPORT FOR ALL POSSIBLE ISSUES:
 
-1. MISSING OR TRUNCATED ACCOUNT NUMBERS:
-   - Look for account numbers that show only xxxxxxxx1234 or similar patterns
-   - Find completely missing account numbers where they should exist
-   - Identify partial account numbers that are cut off or incomplete
+1. DATA COMPLETENESS ISSUES:
+   - ANY masked/truncated account numbers (XXXX1234, ****1234) - FCRA VIOLATION
+   - Empty cells in ANY table or grid
+   - Missing values where data should exist (look for "N/A", "-", blank spaces)
+   - Incomplete addresses (missing street, city, state, or ZIP)
+   - Partial dates (missing month/year)
+   - Missing account information fields
 
-2. EMPTY PAYMENT HISTORY CELLS:
-   - Scan payment history tables for empty cells where payment data should exist
-   - Look for missing payment amounts, dates, or statuses
-   - Identify gaps in payment timelines
+2. PAYMENT HISTORY ANALYSIS:
+   - ANY cell in payment history grid (empty OR filled)
+   - Late payment markers (30, 60, 90, 120, 150, 180 days)
+   - Collection accounts (C, CO, COL markers)
+   - Charge-offs, foreclosures, repossessions
+   - Bankruptcy indicators
+   - ANY payment status that isn't "OK" or "Paid as agreed"
 
-3. MISSING CREDITOR INFORMATION:
-   - Find missing creditor names or company information
-   - Look for blank fields where account names should appear
-   - Identify incomplete contact information
+3. ACCOUNT STATUS ISSUES:
+   - Closed accounts that show activity
+   - Disputed items (look for "Consumer disputes" text)
+   - Accounts in collections
+   - Charged-off accounts
+   - Settlement accounts
+   - Any negative account status
 
-4. INCOMPLETE BALANCE DATA:
-   - Find missing balance amounts
-   - Look for incomplete financial information
-   - Identify missing limit or available credit data
+4. POTENTIAL ERRORS TO HIGHLIGHT:
+   - Duplicate accounts (same creditor listed multiple times)
+   - Incorrect balances (negative balances, impossibly high amounts)
+   - Old accounts beyond 7-year reporting limit
+   - Mixed files (accounts that may belong to someone else)
+   - Incorrect personal information
+   - Variations in name spelling or addresses
 
-5. MISSING DATES OR STATUS INFORMATION:
-   - Find missing account opening dates
-   - Look for missing payment due dates
-   - Identify missing account status information
+5. INQUIRY SECTION:
+   - Hard inquiries (especially multiple for same purpose)
+   - Unauthorized inquiries
+   - Inquiries older than 2 years (should be removed)
 
-IMPORTANT: Only report issues you can actually SEE in the image. Provide precise pixel coordinates for each issue found.
+6. PUBLIC RECORDS & COLLECTIONS:
+   - Bankruptcies, liens, judgments
+   - Collection accounts
+   - Any derogatory public record
+
+7. CREDIT UTILIZATION ISSUES:
+   - High balance-to-limit ratios (over 30%)
+   - Over-limit accounts
+   - Maxed out credit cards
+
+8. SUSPICIOUS PATTERNS:
+   - Sudden changes in payment patterns
+   - Recently opened accounts with immediate issues
+   - Identity theft indicators
+
+IMPORTANT: 
+- Highlight EVERYTHING that could be disputed or corrected
+- Include ALL negative items, not just missing data
+- Look at ACTUAL VALUES, not just empty fields
+- Check for inconsistencies between sections
+- Flag ANY information that seems incorrect or questionable
+- If a payment history shows ANYTHING other than perfect payment, highlight it
 
 For each coordinate, measure from the top-left corner of the page:
 - x: pixels from left edge
@@ -480,9 +580,9 @@ ONLY return the JSON. No other text.`;
   }
 
   /**
-   * Call GPT-5 Vision API
+   * Call GPT-5 Vision API with retry logic and exponential backoff
    */
-  private async callGPT5Vision(messages: ChatCompletionMessage[]): Promise<string> {
+  private async callGPT5Vision(messages: ChatCompletionMessage[], maxRetries: number = 3): Promise<string> {
     const request = {
       model: 'gpt-5',
       messages,
@@ -497,30 +597,66 @@ ONLY return the JSON. No other text.`;
       throw new Error('Missing OpenAI API key. Please add it in Settings or set OPENAI_API_KEY environment variable.');
     }
 
-    console.log('🧠 Making GPT-5 Vision API call...');
+    let lastError: Error | null = null;
     
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const backoffMs = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff: 2s, 4s, 8s (max 10s)
+          console.log(`⏳ Retry attempt ${attempt + 1}/${maxRetries} after ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+        
+        console.log(`🧠 Making GPT-5 Vision API call (attempt ${attempt + 1}/${maxRetries})...`);
+        
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ GPT-5 Vision API error:', response.status, errorText);
-      throw new Error(`GPT-5 Vision API error: ${response.status} ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          
+          // Check if it's a rate limit error (429) or server error (5xx) - retry these
+          if (response.status === 429 || response.status >= 500) {
+            lastError = new Error(`GPT-5 API error (${response.status}): ${errorText}`);
+            console.warn(`⚠️ Retryable error: ${response.status}`);
+            continue; // Retry
+          }
+          
+          // Non-retryable errors (4xx except 429)
+          console.error('❌ GPT-5 Vision API error:', response.status, errorText);
+          throw new Error(`GPT-5 Vision API error: ${response.status} ${errorText}`);
+        }
+
+        const data: OpenAIResponse = await response.json();
+        const content = data.choices[0]?.message?.content || '';
+        
+        console.log('✅ GPT-5 Vision API response received');
+        console.log('📊 Response length:', content.length, 'characters');
+        
+        return content;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Network errors or timeouts - retry
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          console.warn(`⚠️ Network error on attempt ${attempt + 1}: ${error.message}`);
+          continue;
+        }
+        
+        // If it's not a retryable error, throw immediately
+        throw error;
+      }
     }
-
-    const data: OpenAIResponse = await response.json();
-    const content = data.choices[0]?.message?.content || '';
     
-    console.log('✅ GPT-5 Vision API response received');
-    console.log('📊 Response length:', content.length, 'characters');
-    
-    return content;
+    // All retries exhausted
+    throw lastError || new Error('GPT-5 Vision API call failed after all retries');
   }
 
   /**
@@ -552,7 +688,7 @@ ONLY return the JSON. No other text.`;
    */
   private combineChunkResults(
     chunkResults: VisionAnalysisResult[],
-    totalPages: number
+    _totalPages: number
   ): AnalysisResult {
     // Combine all issues from chunks
     const allIssues = chunkResults.flatMap(result => result.issues);

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console Log Debugger</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        #summary {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #444;
+        }
+        .error { border-left-color: #f44336; color: #ff6b6b; }
+        .warning { border-left-color: #ff9800; color: #ffd93d; }
+        .info { border-left-color: #2196f3; color: #6bcf7f; }
+        .api-call { border-left-color: #4caf50; color: #4caf50; }
+        .issue-found { border-left-color: #9c27b0; color: #e91e63; }
+        pre {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .filter-btn {
+            background: #444;
+            font-size: 12px;
+            padding: 5px 10px;
+        }
+        .filter-btn.active {
+            background: #007acc;
+        }
+        #stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .stat-value {
+            font-size: 24px;
+            color: #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h3>Console Log Analyzer</h3>
+        <button onclick="captureCurrentLogs()">Capture Current Logs</button>
+        <button onclick="clearLogs()">Clear</button>
+        <button onclick="exportLogs()">Export JSON</button>
+        <br><br>
+        <div>
+            <button class="filter-btn" onclick="toggleFilter('all')">All</button>
+            <button class="filter-btn" onclick="toggleFilter('errors')">Errors</button>
+            <button class="filter-btn" onclick="toggleFilter('api')">API Calls</button>
+            <button class="filter-btn" onclick="toggleFilter('issues')">Issues Found</button>
+            <button class="filter-btn" onclick="toggleFilter('coordinates')">Coordinates</button>
+        </div>
+    </div>
+
+    <div id="summary">
+        <h2>Analysis Summary</h2>
+        <div id="stats"></div>
+    </div>
+
+    <div id="logs"></div>
+
+    <script>
+        let capturedLogs = [];
+        let currentFilter = 'all';
+
+        // Instructions for use
+        function showInstructions() {
+            const instructions = `
+INSTRUCTIONS FOR USE:
+1. Open this HTML file in a browser tab
+2. In another tab, open your application at localhost:5173
+3. Open DevTools Console in the application tab (F12)
+4. Run your credit report analysis
+5. Switch back to this tab and click "Capture Current Logs"
+6. This will analyze and summarize the console output
+
+To capture logs from the application console:
+- In the app's console, run: 
+  copy(Array.from(document.querySelectorAll('.console-message')).map(e => e.textContent).join('\\n'))
+  
+Or if using Chrome DevTools:
+- Right-click in console > Save as... to save all logs
+- Then paste the content here
+            `;
+            console.log(instructions);
+            alert(instructions);
+        }
+
+        // Capture logs from clipboard or console
+        async function captureCurrentLogs() {
+            try {
+                // Try to read from clipboard
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    analyzeLogs(text);
+                    return;
+                }
+            } catch (e) {
+                // Fallback: prompt for manual paste
+                const text = prompt("Paste your console logs here (Cmd+V):");
+                if (text) {
+                    analyzeLogs(text);
+                }
+            }
+        }
+
+        function analyzeLogs(logText) {
+            const lines = logText.split('\n');
+            capturedLogs = [];
+            
+            const stats = {
+                totalLines: lines.length,
+                apiCalls: 0,
+                errors: 0,
+                warnings: 0,
+                issuesFound: 0,
+                pagesProcessed: new Set(),
+                coordinatesFound: [],
+                gpt5Responses: 0,
+                highlights: 0
+            };
+
+            lines.forEach(line => {
+                const entry = {
+                    text: line,
+                    type: 'info'
+                };
+
+                // Categorize log entries
+                if (line.includes('GPT-5') || line.includes('gpt-5')) {
+                    entry.type = 'api-call';
+                    stats.apiCalls++;
+                }
+                if (line.includes('Vision API') || line.includes('vision')) {
+                    stats.gpt5Responses++;
+                }
+                if (line.includes('error') || line.includes('Error') || line.includes('❌')) {
+                    entry.type = 'error';
+                    stats.errors++;
+                }
+                if (line.includes('warning') || line.includes('Warning') || line.includes('⚠️')) {
+                    entry.type = 'warning';
+                    stats.warnings++;
+                }
+                if (line.includes('Found') && line.includes('issue')) {
+                    entry.type = 'issue-found';
+                    // Extract number of issues
+                    const match = line.match(/(\d+)\s+issue/i);
+                    if (match) {
+                        stats.issuesFound += parseInt(match[1]);
+                    }
+                }
+                if (line.includes('Page') && line.match(/Page\s+(\d+)/)) {
+                    const pageMatch = line.match(/Page\s+(\d+)/);
+                    if (pageMatch) {
+                        stats.pagesProcessed.add(pageMatch[1]);
+                    }
+                }
+                if (line.includes('coordinates') || line.includes('x:') || line.includes('"x":')) {
+                    // Extract coordinates
+                    const coordMatch = line.match(/[{"]x[":]?\s*:?\s*(\d+\.?\d*)/);
+                    if (coordMatch) {
+                        stats.coordinatesFound.push(coordMatch[1]);
+                    }
+                }
+                if (line.includes('highlight') || line.includes('Highlight')) {
+                    stats.highlights++;
+                }
+
+                capturedLogs.push(entry);
+            });
+
+            displayStats(stats);
+            displayLogs();
+        }
+
+        function displayStats(stats) {
+            const statsHtml = `
+                <div class="stat-card">
+                    <div>Total Lines</div>
+                    <div class="stat-value">${stats.totalLines}</div>
+                </div>
+                <div class="stat-card">
+                    <div>API Calls</div>
+                    <div class="stat-value">${stats.apiCalls}</div>
+                </div>
+                <div class="stat-card">
+                    <div>Errors</div>
+                    <div class="stat-value" style="color: #f44336">${stats.errors}</div>
+                </div>
+                <div class="stat-card">
+                    <div>Issues Found</div>
+                    <div class="stat-value" style="color: #4caf50">${stats.issuesFound}</div>
+                </div>
+                <div class="stat-card">
+                    <div>Pages Processed</div>
+                    <div class="stat-value">${stats.pagesProcessed.size}</div>
+                </div>
+                <div class="stat-card">
+                    <div>Coordinates</div>
+                    <div class="stat-value">${stats.coordinatesFound.length}</div>
+                </div>
+                <div class="stat-card">
+                    <div>GPT-5 Responses</div>
+                    <div class="stat-value">${stats.gpt5Responses}</div>
+                </div>
+                <div class="stat-card">
+                    <div>Highlights</div>
+                    <div class="stat-value">${stats.highlights}</div>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = statsHtml;
+
+            // Look for specific problems
+            const problems = [];
+            if (stats.issuesFound < 5) {
+                problems.push("⚠️ Very few issues found - prompt may be too restrictive");
+            }
+            if (stats.errors > 0) {
+                problems.push("❌ Errors detected - check for coordinate or API issues");
+            }
+            if (stats.coordinatesFound.length === 0) {
+                problems.push("⚠️ No coordinates found - GPT-5 may not be returning proper coordinates");
+            }
+            if (stats.highlights === 0 && stats.issuesFound > 0) {
+                problems.push("❌ Issues found but no highlights - coordinate conversion problem");
+            }
+
+            if (problems.length > 0) {
+                document.getElementById('summary').innerHTML += `
+                    <div style="background: #3d1f1f; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <h3>Detected Problems:</h3>
+                        ${problems.map(p => `<div>${p}</div>`).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        function displayLogs() {
+            const filtered = currentFilter === 'all' 
+                ? capturedLogs 
+                : capturedLogs.filter(log => {
+                    if (currentFilter === 'errors') return log.type === 'error';
+                    if (currentFilter === 'api') return log.type === 'api-call';
+                    if (currentFilter === 'issues') return log.type === 'issue-found';
+                    if (currentFilter === 'coordinates') return log.text.includes('coordinates') || log.text.includes('"x":');
+                    return true;
+                });
+
+            const logsHtml = filtered.map(log => 
+                `<div class="log-entry ${log.type}">${escapeHtml(log.text)}</div>`
+            ).join('');
+            
+            document.getElementById('logs').innerHTML = logsHtml;
+        }
+
+        function toggleFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            displayLogs();
+        }
+
+        function clearLogs() {
+            capturedLogs = [];
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('stats').innerHTML = '';
+        }
+
+        function exportLogs() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                logs: capturedLogs,
+                summary: {
+                    total: capturedLogs.length,
+                    errors: capturedLogs.filter(l => l.type === 'error').length,
+                    warnings: capturedLogs.filter(l => l.type === 'warning').length,
+                    issues: capturedLogs.filter(l => l.type === 'issue-found').length
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `console-logs-${Date.now()}.json`;
+            a.click();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Show instructions on load
+        window.onload = showInstructions;
+    </script>
+</body>
+</html>
