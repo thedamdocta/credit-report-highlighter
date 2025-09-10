@@ -177,6 +177,7 @@ Right panel shows highlighted PDF
 1. `test-real-gpt5-vision.py` - Original test
 2. `test-improved-gpt5-vision.py` - Multi-pass test
 3. `test-iterative-gpt5-vision.py` - One issue type at a time
+4. `hybrid-pattern-vision-analyzer.py` - Combined pattern + vision approach
 
 ---
 
@@ -252,3 +253,78 @@ The flow is:
 6. **Show result** → Frontend
 
 The break is likely at step 4 (not getting good coordinates) or step 5 (coordinate format wrong for PyMuPDF).
+
+---
+
+## 🆕 Analysis Strategies
+
+### **1. Vision-Only Approach** (Original)
+- **File**: `test-real-gpt5-vision.py`
+- **Method**: GPT-5 analyzes page images
+- **Pros**: Can detect visual anomalies
+- **Cons**: May miss text-based patterns, expensive API calls
+
+### **2. Iterative Vision Approach** (Improved)
+- **File**: `test-iterative-gpt5-vision.py`
+- **Method**: Scans for one issue type at a time
+- **Pros**: More focused, better accuracy per issue type
+- **Cons**: Multiple API calls, slower
+
+### **3. Pattern-Based Approach** (Traditional)
+- **Method**: Regex patterns on extracted text
+- **Pros**: Fast, deterministic, no API costs
+- **Cons**: Can't detect visual issues, rigid patterns
+
+### **4. Hybrid Approach** (Best of Both)
+- **File**: `hybrid-pattern-vision-analyzer.py`
+- **Method**: Combines pattern matching + GPT-5 vision
+- **Flow**:
+  ```
+  Phase 1: Pattern Detection (Fast)
+      ↓
+  Extract text with PyMuPDF
+      ↓
+  Apply regex patterns for known errors
+      ↓
+  Get exact text positions
+      ↓
+  Phase 2: Vision Enhancement (Smart)
+      ↓
+  Convert pages to images
+      ↓
+  GPT-5 finds visual/complex issues
+      ↓
+  Phase 3: Merge & Deduplicate
+      ↓
+  Combine results from both methods
+      ↓
+  Remove duplicates based on location
+  ```
+
+#### **Hybrid Approach Patterns:**
+```python
+ERROR_PATTERNS = {
+    ErrorType.COLLECTION: [
+        r'\bCOLLECTION\b',
+        r'PORTFOLIO RECOVERY',
+        r'CAVALRY PORTFOLIO',
+    ],
+    ErrorType.CHARGE_OFF: [
+        r'CHARGE[\s\-_]?OFF',
+        r'Charged Off',
+    ],
+    ErrorType.LATE_PAYMENT: [
+        r'\b(30|60|90|120|150|180)\s*Days?\s*Past\s*Due',
+    ],
+    ErrorType.TRUNCATED_ACCOUNT: [
+        r'[X\*]{4,}[\s\-]?\d{4}',  # XXXX1234 - FCRA violation
+    ]
+}
+```
+
+#### **Why Hybrid is Better:**
+1. **Speed**: Pattern matching finds known errors instantly
+2. **Coverage**: GPT-5 catches what patterns miss
+3. **Cost**: Fewer API calls (only for complex issues)
+4. **Accuracy**: Two independent methods validate each other
+5. **FCRA Compliance**: Specific patterns for truncated accounts
